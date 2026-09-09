@@ -39,6 +39,7 @@
 #include "backend/CustomEmojiService.h"
 #include "backend/emoji/EmojiInfo.h"
 #include "backend/emoji/EmojiRegistryNotifier.h"
+#include "ui/EmojiPresentation.h"
 #include "ui_ChooseEmojiDialog.h"
 
 namespace Mattermost {
@@ -242,6 +243,7 @@ void ChooseEmojiDialog::createTabForCategory (uint32_t categoryIndex, uint32_t t
 	sizePolicy.setVerticalStretch(0);
 
 	QFont font = EmojiDialogSupport::emojiButtonFont (QFont());
+	EmojiPresentation::preferEmojiFont(font);
 
 	QGridLayout *gridLayout = createTab (categoryIndex, tabIndex);
 

@@ -71,6 +71,14 @@ PostReaction::PostReaction(Backend& backend,
     ui_->emoji->setAttribute(Qt::WA_TransparentForMouseEvents);
     ui_->count->setAttribute(Qt::WA_TransparentForMouseEvents);
 
+    const QFont reactionFont = EmojiPresentation::emojiFontForMode(
+        ui_->emoji->font(), EmojiPresentation::Mode::Reaction);
+    ui_->emoji->setFont(reactionFont);
+    emojiValue_ = EmojiPresentation::normalizeHtml(
+        emojiValue,
+        reactionFont,
+        EmojiPresentation::Mode::Reaction);
+    ui_->emoji->setText(emojiValue_);
     ui_->count->setText(QString::number(reactionData_.size()));
 
     QStringList unresolvedUserIds;
