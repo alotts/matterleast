@@ -42,6 +42,7 @@
 #include <QWindow>
 
 #include "./ui_mainwindow.h"
+#include "Settings.h"
 #include "SettingsWindow.h"
 #include "backend/Backend.h"
 #include "backend/SidebarService.h"
@@ -429,14 +430,6 @@ void MainWindow::refreshChannelUnreadFilter()
 	}
 
 	const bool unreadOnly = unreadFilterButton->isChecked();
-	if (channelTabs && recentChannels) {
-		const int followingIndex = channelTabs->indexOf(recentChannels);
-		if (unreadOnly && followingIndex >= 0) {
-			channelTabs->removeTab(followingIndex);
-		} else if (!unreadOnly && followingIndex < 0) {
-			channelTabs->insertTab(1, recentChannels, tr("Following"));
-		}
-	}
 
 	const QString filterText = sidebarFilterEdit
 		? sidebarFilterEdit->text().trimmed() : QString();
