@@ -40,6 +40,12 @@ static constexpr const char* CHAT_FONT = "chat/font";
 
 // Historical attachment-file cache setting. Keep the key stable for existing
 // installations, but expose it explicitly on the Cache settings tab.
+
+// Sidebar navigation. When enabled, the Following tab stays visible even while
+// "Show unread only" is active. When disabled, it is hidden just like today.
+static constexpr const char* ALWAYS_SHOW_FOLLOWING_TAB = "sidebar/alwaysShowFollowingTab";
+static constexpr bool ALWAYS_SHOW_FOLLOWING_TAB_DEFAULT = true;
+
 static constexpr const char* CACHE_SIZE_MB = "config/cacheSizeMB";
 static constexpr int CACHE_SIZE_MB_DEFAULT = 1000;
 
