@@ -469,6 +469,10 @@ add_executable(theme-icon-widgets-test
     "${CMAKE_SOURCE_DIR}/sources/ui/ThemeIconWidgets.cpp"
     "${CMAKE_SOURCE_DIR}/sources/ui/BusyIndicator.cpp"
     "${CMAKE_SOURCE_DIR}/sources/ui/IconUtils.cpp"
+    "${CMAKE_SOURCE_DIR}/sources/ui/EmojiPresentation.cpp"
+    "${CMAKE_SOURCE_DIR}/sources/backend/emoji/EmojiInfo.cpp"
+    "${CMAKE_SOURCE_DIR}/sources/backend/emoji/EmojiMap.cpp"
+    "${CMAKE_SOURCE_DIR}/sources/backend/emoji/EmojiRegistryNotifier.cpp"
     "${CMAKE_SOURCE_DIR}/resource.qrc"
 )
 target_include_directories(theme-icon-widgets-test PRIVATE "${CMAKE_SOURCE_DIR}/sources")
