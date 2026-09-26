@@ -83,7 +83,7 @@ ChooseEmojiDialog::ChooseEmojiDialog(Backend& backend, QWidget *parent)
 	ui->setupUi(this);
     EmojiDialogSupport::configureTabWidget(*ui->tabWidget);
 	ui->tabWidget->tabBar()->setFont(
-		EmojiDialogSupport::emojiButtonFont(ui->tabWidget->font(), 10));
+		EmojiDialogSupport::emojiButtonFont(ui->tabWidget->font()));
 	searchTimer = new QTimer(this);
 	searchTimer->setSingleShot(true);
 	searchTimer->setInterval(100);
@@ -158,7 +158,7 @@ QGridLayout* ChooseEmojiDialog::createTab (uint32_t categoryIdx, int tabIndex)
 	tab->setObjectName(QString::fromUtf8("tab") + QString::number(categoryIdx));
 	QGridLayout *gridLayout = new QGridLayout(tab);
 	gridLayout->setSpacing(0);
-	gridLayout->setContentsMargins(0, 0, 0, 0);
+	gridLayout->setContentsMargins(0, 8, 0, 0);
 
 	if (tabIndex >= ui->tabWidget->count()) {
 		ui->tabWidget->addTab(tab, QString());
@@ -319,7 +319,8 @@ void ChooseEmojiDialog::createTabForCategory (uint32_t categoryIndex, uint32_t t
 	if (categoryIndex != EmojiCategory::custom) {
 		iconString = emojis[indexForCategoryTab[categoryIndex]].unicodeString;
 	}
-	ui->tabWidget->setTabText (tabIndex, iconString + tabName);
+	ui->tabWidget->setTabText (tabIndex, iconString);
+	ui->tabWidget->setTabToolTip (tabIndex, tabName);
 
 	/**
 	 * If there are less emojis than a complete row in the current tab, add a horizontal spacer
@@ -380,7 +381,7 @@ void ChooseEmojiDialog::updateSearchResults (const QString& text)
 	searchTab = new QWidget ();
 	QGridLayout* gridLayout = new QGridLayout (searchTab);
 	gridLayout->setSpacing (0);
-	gridLayout->setContentsMargins (0, 0, 0, 0);
+	gridLayout->setContentsMargins (0, 8, 0, 0);
 	QFont font = EmojiDialogSupport::emojiButtonFont (QFont());
 
 	int row = 0;
@@ -430,7 +431,9 @@ void ChooseEmojiDialog::updateSearchResults (const QString& text)
 	QSpacerItem* verticalSpacer = new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding);
 	gridLayout->addItem(verticalSpacer, row+1, 0, 1, 1);
 
-	int searchIndex = ui->tabWidget->addTab (searchTab, tr("Search"));
+	int searchIndex = ui->tabWidget->addTab (searchTab,
+											QStringLiteral("\U0001F50D"));
+	ui->tabWidget->setTabToolTip (searchIndex, tr("Search"));
 	ui->tabWidget->setCurrentIndex (searchIndex);
 }
 
