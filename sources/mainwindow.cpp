@@ -546,7 +546,7 @@ void MainWindow::refreshChannelUnreadFilter()
 				}
 
 				bool matchesUnread = true;
-				if (unreadOnly) {
+				if (unreadOnly && !textFilterActive) {
 					const bool retained = channelsTabVisible
 						&& channelId == retainedUnreadFilterChannelId;
 					matchesUnread = channel
