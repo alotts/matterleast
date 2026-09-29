@@ -172,12 +172,9 @@ private:
 	                                    const QString& displayName, bool collapsed);
 	ChannelItem* createChannelItem(Backend& backend, TeamItem& teamItem,
 	                               QTreeWidgetItem& categoryItem, BackendChannel& channel);
-    ChannelItem* createPersonalItem(Backend& backend, TeamItem& teamItem,
-                                    QTreeWidgetItem& categoryItem);
-    ChannelItem* createSavedItem(Backend& backend, TeamItem& teamItem,
-                                 QTreeWidgetItem& categoryItem);
-    ChannelItem* createDraftsItem(Backend& backend, TeamItem& teamItem,
-                                  QTreeWidgetItem& categoryItem);
+    ChannelItem* createPersonalItem(Backend& backend, TeamItem& teamItem);
+    ChannelItem* createSavedItem(Backend& backend, TeamItem& teamItem);
+    ChannelItem* createDraftsItem(Backend& backend, TeamItem& teamItem);
     QTreeWidgetItem* personalItemForTeam(const QString& teamId) const;
     void refreshPersonalItems();
 	ChatArea* ensureChatArea(QTreeWidgetItem* item);

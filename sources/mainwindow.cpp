@@ -462,9 +462,34 @@ void MainWindow::refreshChannelUnreadFilter()
 		}
 
 		bool teamHasVisibleChannels = false;
+
+		// Personal / Saved / Drafts are leading direct children of the team item,
+		// outside any category. They are never hidden by Unread-Only; under an
+		// active text filter they match by label like ordinary rows. A visible
+		// destination keeps the whole team row visible.
+		for (int destIndex = 0; destIndex < teamItem->childCount(); ++destIndex) {
+			QTreeWidgetItem* destItem = teamItem->child(destIndex);
+			if (!destItem
+				|| destItem->data(0, ChannelTree::ItemKindRole).toInt()
+					!= ChannelTree::VirtualDestinationItemKind) {
+				continue;
+			}
+			const bool destVisible = !textFilterActive
+				|| destItem->text(0).contains(filterText, Qt::CaseInsensitive);
+			destItem->setHidden(!destVisible);
+			teamHasVisibleChannels = teamHasVisibleChannels || destVisible;
+		}
+
 		for (int categoryIndex = 0; categoryIndex < teamItem->childCount(); ++categoryIndex) {
 			QTreeWidgetItem* categoryItem = teamItem->child(categoryIndex);
 			if (!categoryItem) {
+				continue;
+			}
+			// Leading Personal / Saved / Drafts rows are team-level children and
+			// must not be treated as categories here; they were already handled
+			// by the destination pass above and would otherwise be hidden.
+			if (categoryItem->data(0, ChannelTree::ItemKindRole).toInt()
+				!= ChannelTree::CategoryItemKind) {
 				continue;
 			}
 

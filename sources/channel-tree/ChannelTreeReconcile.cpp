@@ -51,13 +51,18 @@ QTreeWidgetItem* findChannelChild(QTreeWidgetItem* category, const QString& chan
     return nullptr;
 }
 
-QTreeWidgetItem* findVirtualChild(QTreeWidgetItem* category, int destination)
+// The three virtual destinations (Personal / Saved / Drafts) are always-present
+// leading direct children of each team item, ordered before every category.
+// Reconcile must place and preserve exactly this many rows in this order.
+constexpr int kLeadingDestinationCount = 3;
+
+QTreeWidgetItem* findVirtualRow(QTreeWidgetItem* team, int destination)
 {
-    if (!category) {
+    if (!team) {
         return nullptr;
     }
-    for (int i = 0; i < category->childCount(); ++i) {
-        QTreeWidgetItem* row = category->child(i);
+    for (int i = 0; i < team->childCount(); ++i) {
+        QTreeWidgetItem* row = team->child(i);
         if (row && row->data(0, SidebarItem::KindRole).toInt() == SidebarItem::VirtualDestination
             && row->data(0, SidebarItem::DestinationRole).toInt() == destination) {
             return row;
@@ -239,6 +244,27 @@ void ChannelTree::reconcileTeamSidebar(Backend& backend, TeamItem& teamItem,
         }
     }
 
+    // Personal / Saved / Drafts are always-present leading rows directly under
+    // the team item, ordered before every category and outside any category
+    // group. Ensure each exists and sits at the fixed leading index so the
+    // categories below always mount after them.
+    const struct {
+        int destination;
+        ChannelItem* (ChannelTree::*create)(Backend&, TeamItem&);
+    } leadingDestinations[] = {
+        {SidebarItem::PersonalDestination, &ChannelTree::createPersonalItem},
+        {SidebarItem::SavedDestination, &ChannelTree::createSavedItem},
+        {SidebarItem::DraftsDestination, &ChannelTree::createDraftsItem},
+    };
+    for (int desiredIndex = 0; desiredIndex < kLeadingDestinationCount; ++desiredIndex) {
+        const auto& spec = leadingDestinations[desiredIndex];
+        QTreeWidgetItem* row = findVirtualRow(&teamItem, spec.destination);
+        if (!row) {
+            row = (this->*spec.create)(backend, teamItem);
+        }
+        moveChild(teamItem, row, desiredIndex);
+    }
+
     struct ActiveCategory {
         QTreeWidgetItem* item = nullptr;
         const SidebarCategory* category = nullptr;
@@ -262,10 +288,11 @@ void ChannelTree::reconcileTeamSidebar(Backend& backend, TeamItem& teamItem,
             categories.insert(categoryId, categoryItem);
         }
 
+        const int wantedIndex = kLeadingDestinationCount + categoryIndex;
         const int currentIndex = teamItem.indexOfChild(categoryItem);
-        if (currentIndex >= 0 && currentIndex != categoryIndex) {
+        if (currentIndex >= 0 && currentIndex != wantedIndex) {
             teamItem.takeChild(currentIndex);
-            teamItem.insertChild(categoryIndex, categoryItem);
+            teamItem.insertChild(wantedIndex, categoryItem);
         }
         categoryItem->setText(0, categoryDisplayName(*category));
         categoryItem->setData(0, ItemTeamIdRole, teamItem.teamId);
@@ -280,30 +307,6 @@ void ChannelTree::reconcileTeamSidebar(Backend& backend, TeamItem& teamItem,
     for (ActiveCategory& entry : active) {
         QTreeWidgetItem* categoryItem = entry.item;
         int rowIndex = 0;
-        const bool favorites = entry.category->type == QStringLiteral("favorites");
-
-        if (favorites) {
-            QTreeWidgetItem* personal = findVirtualChild(
-                categoryItem, SidebarItem::PersonalDestination);
-            if (!personal) {
-                personal = createPersonalItem(backend, teamItem, *categoryItem);
-            }
-            moveChild(*categoryItem, personal, rowIndex++);
-
-            QTreeWidgetItem* saved = findVirtualChild(
-                categoryItem, SidebarItem::SavedDestination);
-            if (!saved) {
-                saved = createSavedItem(backend, teamItem, *categoryItem);
-            }
-            moveChild(*categoryItem, saved, rowIndex++);
-
-            QTreeWidgetItem* drafts = findVirtualChild(
-                categoryItem, SidebarItem::DraftsDestination);
-            if (!drafts) {
-                drafts = createDraftsItem(backend, teamItem, *categoryItem);
-            }
-            moveChild(*categoryItem, drafts, rowIndex++);
-        }
 
         for (const QString& channelId : desiredChannels.value(entry.category->id)) {
             BackendChannel* channel = backend.getStorage().getChannelById(channelId);
@@ -343,15 +346,21 @@ void ChannelTree::reconcileTeamSidebar(Backend& backend, TeamItem& teamItem,
         }
     }
 
-    // Desired categories were moved to the front in exact order; anything left
-    // after them no longer exists in the authoritative state.
+    // Desired categories were placed in exact order after the leading destination
+    // rows; anything left no longer exists in the authoritative state and must
+    // be destroyed. Never touch the leading Personal / Saved / Drafts rows.
     const int activeCategoryCount = static_cast<int>(active.size());
-    while (teamItem.childCount() > activeCategoryCount) {
-        QTreeWidgetItem* staleCategory = teamItem.takeChild(activeCategoryCount);
-        while (staleCategory && staleCategory->childCount() > 0) {
-            destroySidebarRow(staleCategory->takeChild(0));
+    const int totalLeadingRows = kLeadingDestinationCount + activeCategoryCount;
+    while (teamItem.childCount() > totalLeadingRows) {
+        QTreeWidgetItem* stale = teamItem.takeChild(totalLeadingRows);
+        if (stale && stale->data(0, ItemKindRole).toInt() == VirtualDestinationItemKind) {
+            destroySidebarRow(stale);
+            continue;
         }
-        delete staleCategory;
+        while (stale && stale->childCount() > 0) {
+            destroySidebarRow(stale->takeChild(0));
+        }
+        delete stale;
     }
 
     teamItem.setExpanded(true);
