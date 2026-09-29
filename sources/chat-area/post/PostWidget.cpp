@@ -1,20 +1,20 @@
 /**
  * Copyright 2021, 2022 Lyubomir Filipov
  *
- * This file is part of Mattermost-QT.
+ * This file is part of MatterLeast.
  *
- * Mattermost-QT is free software: you can redistribute it and/or modify
+ * MatterLeast is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mattermost-QT is distributed in the hope that it will be useful,
+ * MatterLeast is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Mattermost-QT. if not, see https://www.gnu.org/licenses/.
+ * along with MatterLeast. if not, see https://www.gnu.org/licenses/.
  */
 
 #include "PostWidget.h"
@@ -145,9 +145,10 @@ PostWidget::PostWidget(Backend& backend,
     connect(&EmojiRegistryNotifier::instance(),
             &EmojiRegistryNotifier::customEmojiAdded,
             this, [this](const QString& name) {
-        const bool renderedPending = unresolvedReactionNames_.contains(name);
-        const bool modelChanged = this->post.resolveReactionEmoji(name);
-        if (renderedPending || modelChanged) {
+        // Reaction identity is already complete in BackendPost. Registry changes
+        // affect presentation only, so repaint a matching named reaction without
+        // rewriting its semantic key.
+        if (this->post.reactions.find(name) != this->post.reactions.end()) {
             updateReactions();
         }
     });
@@ -1060,10 +1061,7 @@ void PostWidget::openGroupMention(const QString& groupId)
 
 void PostWidget::createReactionList()
 {
-    unresolvedReactionNames_.clear();
-    post.resolvePendingReactions();
-    if (post.isDeleted
-        || (post.reactions.empty() && post.unresolvedReactions.empty())) {
+    if (post.isDeleted || post.reactions.empty()) {
         return;
     }
 
@@ -1072,19 +1070,22 @@ void PostWidget::createReactionList()
         reactions->setFont(chatFont_);
     }
 
-    for (const auto& it : post.reactions) {
-        const Emoji emoji = EmojiInfo::getEmoji(it.first);
-        reactions->addReaction(emoji.name, emoji.unicodeString, it.second);
-    }
+    for (const auto& [emojiName, users] : post.reactions) {
+        const EmojiID emojiId = EmojiInfo::findByName(emojiName);
+        if (!emojiId) {
+            // Keep the exact wire identity visible while CustomEmojiService
+            // resolves only its presentation. findByName() above schedules that
+            // lazy lookup for valid custom names.
+            reactions->addReaction(
+                emojiName,
+                QStringLiteral(":") + emojiName + QLatin1Char(':'),
+                users);
+            continue;
+        }
 
-    // Preserve an authoritative server reaction while a custom image is still
-    // resolving. customEmojiAdded rebuilds this placeholder as the normal image.
-    for (const auto& it : post.unresolvedReactions) {
-        unresolvedReactionNames_.insert(it.first);
+        const Emoji presentation = EmojiInfo::getEmoji(emojiId);
         reactions->addReaction(
-            it.first,
-            QStringLiteral(":") + it.first + QLatin1Char(':'),
-            it.second);
+            emojiName, presentation.unicodeString, users);
     }
 
     connectReactionActions();

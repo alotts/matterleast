@@ -37,7 +37,15 @@ The picker uses it to refresh:
 - the Custom tab if the newly registered emoji changes that tab;
 - the active search result view.
 
-Post widgets use the same signal to re-render unresolved custom emoji and to promote unresolved named reactions into normal reaction chips.
+Post widgets use the same signal to re-render a matching named reaction after
+its custom image becomes available.
+
+Reaction identity is never owned by the registry. `BackendPost` stores every
+reaction by the exact Mattermost `emoji_name` received from REST/WebSocket
+state, including built-in aliases and unresolved custom names. `EmojiInfo` is
+consulted only when rendering that name. This prevents a registry alias or a
+transient custom-emoji resolution state from changing the name later used by
+tooltips, add/remove actions, or reaction events.
 
 
 ## Picker theme propagation

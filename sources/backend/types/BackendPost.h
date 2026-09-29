@@ -6,20 +6,20 @@
  *
  * Copyright 2021, 2022 Lyubomir Filipov
  *
- * This file is part of Mattermost-QT.
+ * This file is part of MatterLeast.
  *
- * Mattermost-QT is free software: you can redistribute it and/or modify
+ * MatterLeast is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mattermost-QT is distributed in the hope that it will be useful,
+ * MatterLeast is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Mattermost-QT. if not, see https://www.gnu.org/licenses/.
+ * along with MatterLeast. if not, see https://www.gnu.org/licenses/.
  */
 
 #pragma once
@@ -74,10 +74,6 @@ public:
 	void addReaction(QString userId, QString emojiName);
 	void removeReaction(QString userId, QString emojiName);
     bool hasReaction(const QString& userId, const QString& emojiName) const;
-    /** Move one now-known custom reaction from its name bucket to EmojiID storage. */
-    bool resolveReactionEmoji(const QString& emojiName);
-    /** Resolve every pending custom reaction whose emoji is already registered. */
-    bool resolvePendingReactions();
 private:
 	QString getAuthorName () const;
 public:
@@ -101,10 +97,10 @@ public:
 	QString						hashtags;
 	QString						pending_post_id;
 	std::list<BackendFile>		files;
-	std::map<EmojiID, BackendPostReaction> reactions;
-    // Mattermost identifies reactions by emoji_name. Keep unknown/custom names
-    // until EmojiInfo learns their image instead of dropping them during parse.
-    std::map<QString, BackendPostReaction> unresolvedReactions;
+    // Mattermost reaction identity is the wire-level emoji_name. EmojiInfo is
+    // presentation-only: aliases and a mutable custom-emoji registry must never
+    // replace the name used for add/remove/tooltip semantics.
+    std::map<QString, BackendPostReaction> reactions;
 	// Server-generated embed metadata (permalinks, OpenGraph, etc.). Keep this
 	// opaque in the backend so UI consumers can understand only the embed types
 	// they support without duplicating Mattermost's metadata model here.

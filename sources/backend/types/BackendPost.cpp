@@ -6,26 +6,25 @@
  *
  * Copyright 2021, 2022 Lyubomir Filipov
  *
- * This file is part of Mattermost-QT.
+ * This file is part of MatterLeast.
  *
- * Mattermost-QT is free software: you can redistribute it and/or modify
+ * MatterLeast is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mattermost-QT is distributed in the hope that it will be useful,
+ * MatterLeast is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Mattermost-QT. if not, see https://www.gnu.org/licenses/.
+ * along with MatterLeast. if not, see https://www.gnu.org/licenses/.
  */
 
 #include "BackendPost.h"
 
 #include <QJsonArray>
-#include "backend/emoji/EmojiInfo.h"
 #include "BackendPoll.h"
 #include "backend/Storage.h"
 #include "log.h"
@@ -152,31 +151,10 @@ void BackendPost::addReaction(QString userId, QString emojiName)
         return;
     }
 
-	const EmojiID emojiId = EmojiInfo::findByName(emojiName);
-	if (!emojiId) {
-        // Custom emoji registration is asynchronous. Preserve the authoritative
-        // server reaction by name while EmojiInfo/CustomEmojiService resolves
-        // its image; otherwise this reaction is lost permanently.
-        auto& users = unresolvedReactions[emojiName];
-        if (!users.contains(userId)) {
-            users.push_back(userId);
-        }
-		return;
-	}
-
-    auto& users = reactions[emojiId];
-    const auto unresolved = unresolvedReactions.find(emojiName);
-    if (unresolved != unresolvedReactions.end()) {
-        for (const QString& pendingUserId : unresolved->second) {
-            if (!users.contains(pendingUserId)) {
-                users.push_back(pendingUserId);
-            }
-        }
-        unresolvedReactions.erase(unresolved);
-    }
-
     // WebSocket events may be replayed after reconnect. reaction_added is an
-    // idempotent fact, never a toggle.
+    // idempotent fact, never a toggle. Keep the exact Mattermost emoji_name as
+    // model identity; EmojiInfo resolution belongs to presentation only.
+    auto& users = reactions[emojiName];
     if (!users.contains(userId)) {
         users.push_back(userId);
     }
@@ -188,26 +166,15 @@ void BackendPost::removeReaction(QString userId, QString emojiName)
         return;
     }
 
-	const EmojiID emojiId = EmojiInfo::findByName(emojiName);
-	if (emojiId) {
-        auto reaction = reactions.find(emojiId);
-        if (reaction != reactions.end()) {
-            auto& users = reaction->second;
-            users.erase(std::remove(users.begin(), users.end(), userId), users.end());
-            if (users.isEmpty()) {
-                reactions.erase(reaction);
-            }
-        }
-    }
-
-    auto unresolved = unresolvedReactions.find(emojiName);
-    if (unresolved == unresolvedReactions.end()) {
+    auto reaction = reactions.find(emojiName);
+    if (reaction == reactions.end()) {
         return;
     }
-    auto& users = unresolved->second;
+
+    auto& users = reaction->second;
     users.erase(std::remove(users.begin(), users.end(), userId), users.end());
     if (users.isEmpty()) {
-        unresolvedReactions.erase(unresolved);
+        reactions.erase(reaction);
     }
 }
 
@@ -217,58 +184,8 @@ bool BackendPost::hasReaction(const QString& userId, const QString& emojiName) c
         return false;
     }
 
-    const EmojiID emojiId = EmojiInfo::findByName(emojiName);
-    if (emojiId) {
-        const auto resolved = reactions.find(emojiId);
-        if (resolved != reactions.end() && resolved->second.contains(userId)) {
-            return true;
-        }
-    }
-
-    const auto unresolved = unresolvedReactions.find(emojiName);
-    return unresolved != unresolvedReactions.end()
-        && unresolved->second.contains(userId);
-}
-
-bool BackendPost::resolveReactionEmoji(const QString& emojiName)
-{
-    auto unresolved = unresolvedReactions.find(emojiName);
-    if (unresolved == unresolvedReactions.end()) {
-        return false;
-    }
-
-    const EmojiID emojiId = EmojiInfo::findByName(emojiName);
-    if (!emojiId) {
-        return false;
-    }
-
-    auto& resolvedUsers = reactions[emojiId];
-    for (const QString& userId : unresolved->second) {
-        if (!resolvedUsers.contains(userId)) {
-            resolvedUsers.push_back(userId);
-        }
-    }
-    unresolvedReactions.erase(unresolved);
-    return true;
-}
-
-bool BackendPost::resolvePendingReactions()
-{
-    if (unresolvedReactions.empty()) {
-        return false;
-    }
-
-    QStringList names;
-    names.reserve(static_cast<int>(unresolvedReactions.size()));
-    for (const auto& reaction : unresolvedReactions) {
-        names.push_back(reaction.first);
-    }
-
-    bool changed = false;
-    for (const QString& name : names) {
-        changed = resolveReactionEmoji(name) || changed;
-    }
-    return changed;
+    const auto reaction = reactions.find(emojiName);
+    return reaction != reactions.end() && reaction->second.contains(userId);
 }
 
 /**
@@ -342,24 +259,7 @@ bool BackendPost::updatePostEdits (BackendPost& editedPost)
 		}
 		return true;
 	};
-	const auto sameReactions = [](const std::map<EmojiID, BackendPostReaction>& lhs,
-	                              const std::map<EmojiID, BackendPostReaction>& rhs) {
-		if (lhs.size() != rhs.size()) {
-			return false;
-		}
-		auto left = lhs.cbegin();
-		auto right = rhs.cbegin();
-		for (; left != lhs.cend(); ++left, ++right) {
-			// EmojiID is intentionally orderable for std::map but has no equality
-			// operator. Equivalent keys are therefore !(a < b) && !(b < a).
-			if (left->first < right->first || right->first < left->first
-				|| left->second != right->second) {
-				return false;
-			}
-		}
-		return true;
-	};
-    const auto sameNamedReactions =
+    const auto sameReactions =
         [](const std::map<QString, BackendPostReaction>& lhs,
            const std::map<QString, BackendPostReaction>& rhs) {
         if (lhs.size() != rhs.size()) {
@@ -397,8 +297,6 @@ bool BackendPost::updatePostEdits (BackendPost& editedPost)
 		|| pending_post_id != editedPost.pending_post_id
 		|| !sameFiles(files, editedPost.files)
 		|| !sameReactions(reactions, editedPost.reactions)
-        || !sameNamedReactions(unresolvedReactions,
-                               editedPost.unresolvedReactions)
 		|| embeds != editedPost.embeds
 		|| reply_count != editedPost.reply_count
 		|| last_reply_at != editedPost.last_reply_at
@@ -435,7 +333,6 @@ bool BackendPost::updatePostEdits (BackendPost& editedPost)
 	pending_post_id = editedPost.pending_post_id;
 	files = std::move(editedPost.files);
 	reactions = std::move(editedPost.reactions);
-    unresolvedReactions = std::move(editedPost.unresolvedReactions);
 	embeds = std::move(editedPost.embeds);
 	reply_count = editedPost.reply_count;
 	last_reply_at = editedPost.last_reply_at;
