@@ -304,11 +304,10 @@ QTreeWidgetItem* ChannelTree::createCategoryItem(TeamItem& teamItem, const QStri
     return item;
 }
 
-ChannelItem* ChannelTree::createPersonalItem(Backend& backend, TeamItem& teamItem,
-                                             QTreeWidgetItem& categoryItem)
+ChannelItem* ChannelTree::createPersonalItem(Backend& backend, TeamItem& teamItem)
 {
     auto* item = new DirectChannelItem(backend, nullptr);
-    categoryItem.addChild(item);
+    teamItem.addChild(item);
     item->setData(0, ItemKindRole, VirtualDestinationItemKind);
     item->setData(0, ItemIdRole, QStringLiteral("virtual:personal"));
     item->setData(0, ItemTeamIdRole, teamItem.teamId);
@@ -343,11 +342,10 @@ ChannelItem* ChannelTree::createPersonalItem(Backend& backend, TeamItem& teamIte
     return item;
 }
 
-ChannelItem* ChannelTree::createSavedItem(Backend& backend, TeamItem& teamItem,
-                                          QTreeWidgetItem& categoryItem)
+ChannelItem* ChannelTree::createSavedItem(Backend& backend, TeamItem& teamItem)
 {
     auto* item = new VirtualDestinationItem(backend, nullptr);
-    categoryItem.addChild(item);
+    teamItem.addChild(item);
     item->setData(0, ItemKindRole, VirtualDestinationItemKind);
     item->setData(0, ItemIdRole, QStringLiteral("virtual:saved"));
     item->setData(0, ItemTeamIdRole, teamItem.teamId);
@@ -360,11 +358,10 @@ ChannelItem* ChannelTree::createSavedItem(Backend& backend, TeamItem& teamItem,
     return item;
 }
 
-ChannelItem* ChannelTree::createDraftsItem(Backend& backend, TeamItem& teamItem,
-                                           QTreeWidgetItem& categoryItem)
+ChannelItem* ChannelTree::createDraftsItem(Backend& backend, TeamItem& teamItem)
 {
     auto* item = new VirtualDestinationItem(backend, nullptr);
-    categoryItem.addChild(item);
+    teamItem.addChild(item);
     item->setData(0, ItemKindRole, VirtualDestinationItemKind);
     item->setData(0, ItemIdRole, QStringLiteral("virtual:drafts"));
     item->setData(0, ItemTeamIdRole, teamItem.teamId);
@@ -384,15 +381,12 @@ QTreeWidgetItem* ChannelTree::personalItemForTeam(const QString& teamId) const
         return nullptr;
     }
 
-    for (int categoryIndex = 0; categoryIndex < teamItem->childCount(); ++categoryIndex) {
-        QTreeWidgetItem* category = teamItem->child(categoryIndex);
-        for (int rowIndex = 0; category && rowIndex < category->childCount(); ++rowIndex) {
-            QTreeWidgetItem* row = category->child(rowIndex);
-            if (row
-                && row->data(0, ItemKindRole).toInt() == VirtualDestinationItemKind
-                && row->data(0, ItemDestinationRole).toInt() == SidebarItem::PersonalDestination) {
-                return row;
-            }
+    for (int rowIndex = 0; rowIndex < teamItem->childCount(); ++rowIndex) {
+        QTreeWidgetItem* row = teamItem->child(rowIndex);
+        if (row
+            && row->data(0, ItemKindRole).toInt() == VirtualDestinationItemKind
+            && row->data(0, ItemDestinationRole).toInt() == SidebarItem::PersonalDestination) {
+            return row;
         }
     }
     return nullptr;
@@ -1209,10 +1203,10 @@ bool ChannelTree::resolveChannelDropTarget(QTreeWidgetItem* source,
     } else if (targetKind == CategoryItemKind) {
         targetCategoryItem = target;
     } else if (targetKind == VirtualDestinationItemKind) {
-        // Personal/Saved are presentation-only rows inside Favorites and have
-        // no position in category.channel_ids. Treat dropping on them as
-        // dropping on the category itself rather than inventing an ordinal.
-        targetCategoryItem = target->parent();
+        // Personal/Saved/Drafts are presentation-only leading rows directly under
+        // the team item; they have no position in any category.channel_ids.
+        // Treat dropping on them as invalid rather than inventing an ordinal.
+        return false;
     } else {
         return false;
     }

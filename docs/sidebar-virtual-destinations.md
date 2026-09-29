@@ -4,10 +4,38 @@ This note records the model for user-centric destinations that look like navigat
 not ordinary server sidebar rows, plus the common collection semantics needed by Saved and
 message search.
 
+## Placement invariant
+
+**Personal**, **Saved** and **Drafts** are always-present rows rendered as **direct children of each
+team item**, ordered before every category (Favorites / Channels / Direct Messages) and outside any
+category group. They are category-siblings that lead each team's subtree:
+
+```text
+TeamItem
+  +-- Personal        (VirtualDestination)
+  +-- Saved           (VirtualDestination)
+  +-- Drafts          (VirtualDestination)
+  +-- Favorites
+  +-- Channels
+  +-- Direct Messages
+```
+
+Structural consequences to preserve:
+
+- Reconcile (`reconcileTeamSidebar`) must place these three rows at team-child indices 0, 1, 2 and
+  mount all categories after them; its trailing cleanup must never destroy the three leading rows.
+- The **Unread only** filter never hides them: a destination is hidden only by an explicit text filter
+  that its label does not match. Because they are team-level rows, the Unread-Only per-category pass
+  leaves them visible and a visible destination keeps the whole team row visible.
+- The rows are non-draggable and non-droppable, and dropping a channel/category onto one is rejected.
+- Each stays per-team (`ItemTeamIdRole`), and `virtualDestinationRequested` still carries `teamId`.
+- Personal's backing self-DM channel remains suppressed from Favorites so the conversation is not
+  shown twice.
+
 ## Personal
 
-The user's self-contact/self-DM is exposed as **Personal** (`Личное`) as the first local row inside the
-existing **Favorites** sidebar category.
+The user's self-contact/self-DM is exposed as **Personal** (`Личное`) as a leading direct row under
+each team item, above the Favorites category.
 
 `Personal` is a virtual navigation item, but its destination is a real canonical self-DM channel. It
 resolves the logged-in user's direct channel with themselves and opens the ordinary channel/timeline
@@ -32,11 +60,12 @@ explicit instead of pretending the local row is an ordinary server channel row.
 **Saved** (`Сохранённое`) is fundamentally different. Saved posts can originate from multiple channels
 and threads, so it does not pretend to be a `BackendChannel`.
 
-It is implemented as the second fixed local row in Favorites and opens the shared virtualized
-`PostCollectionView`. The producer is the paged `/users/{user_id}/posts/flagged` endpoint. Ordinary
-message context menus can add `flagged_post` preferences and Saved rows can remove them again. The
-sidebar row is a concrete virtual-destination item with no channel context menu: it deliberately cannot
-inherit mute, profile, or category-mutation actions from an unrelated real channel.
+It is implemented as the second leading local row under each team item (above the Favorites category)
+and opens the shared virtualized `PostCollectionView`. The producer is the paged
+`/users/{user_id}/posts/flagged` endpoint. Ordinary message context menus can add `flagged_post`
+preferences and Saved rows can remove them again. The sidebar row is a concrete virtual-destination
+item with no channel context menu: it deliberately cannot inherit mute, profile, or category-mutation
+actions from an unrelated real channel.
 
 The destination is backed by a cross-conversation post collection:
 
