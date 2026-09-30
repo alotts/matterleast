@@ -59,7 +59,9 @@ protected:
         }
 
         if (type != QEvent::Enter && type != QEvent::Leave
-            && type != QEvent::MouseButtonPress && type != QEvent::Destroy) {
+            && type != QEvent::MouseButtonPress
+            && type != QEvent::MouseButtonRelease
+            && type != QEvent::Destroy) {
             return QObject::eventFilter(watched, event);
         }
 
@@ -78,7 +80,17 @@ protected:
         } else if (type == QEvent::Leave) {
             scheduleHide();
         } else if (type == QEvent::MouseButtonPress) {
-            clearQuickBar();
+            // Deliberately do not collapse here. The quick-reaction slot is the
+            // leftmost widget in the hover toolbar, so collapsing it repositions
+            // the reaction button under the grabbed mouse. Doing that between the
+            // press and the release makes QPushButton::hitButton() fail on release
+            // and drops the click that opens the emoji picker. Defer the collapse
+            // until after the release (and QPushButton::clicked) completes.
+            hideTimer_.stop();
+        } else if (type == QEvent::MouseButtonRelease) {
+            QTimer::singleShot(0, this, [this] {
+                clearQuickBar();
+            });
         } else if (type == QEvent::Destroy) {
             clearQuickBar();
         }
