@@ -31,18 +31,26 @@
 #include "backend/types/BackendChannel.h"
 #include "backend/types/BackendUser.h"
 #include "channel-tree/ChannelTree.h"
+#include "channel-tree/SidebarItem.h"
 #include "chat-area/ChatArea.h"
 #include "chat-area/ChatLogWidget.h"
 #include "mainwindow.h"
 #include "options/MLOptions.h"
 #include "navigation/AppNavigationService.h"
 #include "navigation/ThreadPaneLayout.h"
+#include "post-collection/PostCollectionView.h"
 #include "ui/ThinSplitter.h"
 
 namespace Mattermost {
 namespace {
 
 constexpr int MaxNavigationHistory = 100;
+
+bool isCollectionDestination(const QString& destination)
+{
+    return destination == SidebarItem::SavedDestinationId
+        || destination == SidebarItem::DraftsDestinationId;
+}
 
 void trimHistory(QVector<NavigationUiController::Location>& history)
 {
@@ -143,15 +151,18 @@ void NavigationUiController::setupMainWindow()
             QWidget* page = mainStack->widget(index);
             const bool chatSurface = qobject_cast<ChatArea*>(page) != nullptr;
             if (!chatSurface) {
-                // Saved/Drafts/Search still use MainWindow's existing transient
-                // collection surface. A tabbed thread must not cover a newly
-                // requested collection merely because that thread currently
-                // owns the navigation surface stack.
+                // Saved/Drafts join the central semantic tab layer, so an open
+                // tabbed/docked thread must never cover the requested collection
+                // and the tab bar stays governed solely by the tab count. Only a
+                // genuinely transient surface (e.g. Search) keeps the legacy
+                // behavior of hiding the tab bar.
+                const bool tabbableCollection = window.isTabbableCollectionPage(page);
                 if (!switchingTabs && navigationSurfaceStack && contentSplitter) {
                     navigationSurfaceStack->setCurrentWidget(contentSplitter);
                 }
                 if (navigationTabs) {
-                    navigationTabs->hide();
+                    navigationTabs->setVisible(
+                        tabbableCollection && tabModel.shouldShowTabBar());
                 }
                 return;
             }
@@ -423,6 +434,8 @@ NavigationUiController::tabEntry(const Location& location) const
     entry.channelId = location.channelId;
     entry.rootId = location.rootId;
     entry.postId = location.postId;
+    entry.destination = location.destination;
+    entry.kind = location.kind;
     entry.title = tabTitle(location);
     return entry;
 }
@@ -434,11 +447,20 @@ NavigationUiController::tabLocation(const NavigationTabsModel::Entry& entry) con
     location.channelId = entry.channelId;
     location.rootId = entry.rootId;
     location.postId = entry.postId;
+    location.destination = entry.destination;
+    location.kind = entry.kind;
     return location;
 }
 
 QString NavigationUiController::tabTitle(const Location& location) const
 {
+    if (location.destination == SidebarItem::SavedDestinationId) {
+        return tr("Saved");
+    }
+    if (location.destination == SidebarItem::DraftsDestinationId) {
+        return tr("Drafts");
+    }
+
     QString title = location.channelId;
     if (Backend* sourceBackend = backend()) {
         if (BackendChannel* channel =
@@ -694,7 +716,8 @@ int NavigationUiController::tabIndexForThread(ChatArea* area) const
     if (!area || !area->isThread) {
         return -1;
     }
-    return tabModel.findDestination(area->getChannel().id, area->root_id);
+    return tabModel.findDestination(area->getChannel().id, area->root_id, QString(),
+                                    NavigationTabsModel::Kind::Channel);
 }
 
 int NavigationUiController::releaseThreadFromTabSurface(ChatArea* area)
@@ -919,10 +942,12 @@ bool NavigationUiController::activateExistingTab(
     const auto* activeEntry = tabModel.at(activeTabIndex);
     if (activeEntry
         && activeEntry->channelId == channelId
-        && activeEntry->rootId == rootId) {
+        && activeEntry->rootId == rootId
+        && activeEntry->destination.isEmpty()) {
         index = activeTabIndex;
     } else {
-        index = tabModel.findDestination(channelId, rootId);
+        index = tabModel.findDestination(channelId, rootId, QString(),
+                                         NavigationTabsModel::Kind::Channel);
     }
 
     if (index < 0) {
@@ -996,7 +1021,8 @@ void NavigationUiController::recordArea(ChatArea* area)
 
     if (navigationTabs && !switchingTabs) {
         const int existingIndex =
-            tabModel.findDestination(next.channelId, next.rootId);
+            tabModel.findDestination(next.channelId, next.rootId, next.destination,
+                                     next.kind);
         if (existingIndex >= 0 && existingIndex != activeTabIndex) {
             {
                 QSignalBlocker blocker(navigationTabs);
@@ -1141,6 +1167,31 @@ void NavigationUiController::navigateTo(const Location& location)
 {
     Backend* sourceBackend = backend();
     if (!sourceBackend || !channelTree || !location.isValid()) {
+        return;
+    }
+
+    // A Saved/Drafts collection has no BackendChannel. Make it the active tab,
+    // reveal (and activate) the requested virtual destination, then adopt it as
+    // the current location without touching the channel/thread pipeline.
+    if (isCollectionDestination(location.destination)) {
+        // Record history here (mirroring recordArea for channels) so every
+        // entry into a collection — sidebar click, tab activation or history
+        // replay — keeps Back/Forward consistent. Replay is skipped.
+        if (!replayingHistory && currentLocation.isValid()
+            && !currentLocation.sameDestination(location)) {
+            backStack.push_back(currentLocation);
+            trimHistory(backStack);
+            forwardStack.clear();
+        }
+
+        updateCollectionTab(location);
+        window.revealCollectionPage(location.destination);
+        currentLocation = location;
+        activeArea = nullptr;
+        if (navigationSurfaceStack && contentSplitter) {
+            navigationSurfaceStack->setCurrentWidget(contentSplitter);
+            contentSplitter->show();
+        }
         return;
     }
 
@@ -1493,6 +1544,72 @@ void NavigationUiController::presentChannel(ChatArea* area)
     recordArea(area);
     refreshTabBarVisibility();
     syncSplitterEdgeGutters();
+}
+
+void NavigationUiController::presentCollection(const QString& destination)
+{
+    if (!isCollectionDestination(destination) || !navigationTabs) {
+        return;
+    }
+
+    Location loc;
+    loc.kind = NavigationTabsModel::Kind::Channel;
+    loc.destination = destination;
+
+    // The collection page lives in mainStack. Force the channel surface so an
+    // open tabbed/docked thread can never cover the collection.
+    if (navigationSurfaceStack && contentSplitter) {
+        navigationSurfaceStack->setCurrentWidget(contentSplitter);
+        contentSplitter->show();
+    }
+
+    // Reveal + activate the page and adopt it as the active tab/current location.
+    navigateTo(loc);
+
+    refreshTabBarVisibility();
+    updateHistoryButtons();
+    syncSplitterEdgeGutters();
+}
+
+void NavigationUiController::updateCollectionTab(const Location& location)
+{
+    if (!navigationTabs || !isCollectionDestination(location.destination)) {
+        return;
+    }
+
+    if (tabModel.isEmpty()) {
+        const int index = appendNavigationTab(location);
+        if (index < 0) {
+            return;
+        }
+        activeTabIndex = index;
+        {
+            QSignalBlocker blocker(navigationTabs);
+            navigationTabs->setCurrentIndex(index);
+        }
+        return;
+    }
+
+    // Saved/Drafts re-use the single channel tab, mirroring how switching
+    // channels reuses one tab. Prefer the active tab when it is a channel tab;
+    // otherwise fall back to the first channel tab (a thread tab must never be
+    // overwritten by a collection).
+    int index = activeTabIndex;
+    const auto* activeEntry = tabModel.at(activeTabIndex);
+    if (!activeEntry || !activeEntry->rootId.isEmpty()) {
+        index = firstChannelTab();
+    }
+    if (index < 0) {
+        index = appendNavigationTab(location);
+    }
+    if (index >= 0) {
+        updateTab(index, location);
+        activeTabIndex = index;
+        if (navigationTabs->currentIndex() != index) {
+            QSignalBlocker blocker(navigationTabs);
+            navigationTabs->setCurrentIndex(index);
+        }
+    }
 }
 
 void NavigationUiController::presentThread(ChatArea* area)

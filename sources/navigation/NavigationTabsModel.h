@@ -19,16 +19,37 @@ namespace Mattermost {
 class NavigationTabsModel final
 {
 public:
+    // The semantic class of a tab destination. An ordinary channel/DM/GM and a
+    // virtual collection destination (Saved/Drafts) share the Channel kind; the
+    // Entry::destination field tells those apart. A separate kind exists so a
+    // destination's class participates in identity and title semantics.
+    enum class Kind {
+        Channel,
+        Thread,
+    };
+
     struct Entry {
         QString channelId;
         QString rootId;
         QString postId;
         QString title;
 
-        bool isValid() const { return !channelId.isEmpty(); }
+        // Empty for an ordinary channel; "virtual:saved" / "virtual:drafts"
+        // for a Saved/Drafts collection destination.
+        QString destination;
+
+        Kind kind = Kind::Channel;
+
+        bool isValid() const
+        {
+            return !channelId.isEmpty() || !destination.isEmpty();
+        }
         bool sameDestination(const Entry& other) const
         {
-            return channelId == other.channelId && rootId == other.rootId;
+            return kind == other.kind
+                && destination == other.destination
+                && channelId == other.channelId
+                && rootId == other.rootId;
         }
     };
 
@@ -41,11 +62,17 @@ public:
         return index >= 0 && index < entries_.size() ? &entries_.at(index) : nullptr;
     }
 
-    int findDestination(const QString& channelId, const QString& rootId) const
+    int findDestination(const QString& channelId,
+                        const QString& rootId,
+                        const QString& destination,
+                        Kind kind) const
     {
         for (int i = 0; i < entries_.size(); ++i) {
-            if (entries_.at(i).channelId == channelId
-                && entries_.at(i).rootId == rootId) {
+            const Entry& entry = entries_.at(i);
+            if (entry.kind == kind
+                && entry.destination == destination
+                && entry.channelId == channelId
+                && entry.rootId == rootId) {
                 return i;
             }
         }
@@ -58,7 +85,8 @@ public:
             return -1;
         }
 
-        const int existing = findDestination(entry.channelId, entry.rootId);
+        const int existing = findDestination(entry.channelId, entry.rootId,
+                                             entry.destination, entry.kind);
         if (existing >= 0) {
             Entry merged = entries_.at(existing);
             if (!entry.postId.isEmpty()) {
@@ -81,7 +109,8 @@ public:
             return false;
         }
 
-        const int existing = findDestination(entry.channelId, entry.rootId);
+        const int existing = findDestination(entry.channelId, entry.rootId,
+                                             entry.destination, entry.kind);
         if (existing >= 0 && existing != index) {
             return false;
         }

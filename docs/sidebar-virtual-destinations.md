@@ -87,6 +87,20 @@ rootId      optional; non-empty means the origin is a thread
 Opening an entry resolves the real channel/thread and then performs ordinary semantic post-ID
 navigation. The collection itself never invents channel page numbers or thread cursor adjacency.
 
+### Tabs, Back/Forward and sidebar reactivation
+
+Saved (and Drafts) participate in the central navigation layer like ordinary channel rows.
+Opening one is recorded in the browser-like Back/Forward history and becomes the current value of
+the single channel tab (title "Saved"/"Drafts"), mirroring how switching channels reuses one tab.
+They share the ordinary `Channel` destination kind; a `destination` discriminator (the
+`virtual:saved`/`virtual:drafts` sentinel ids) tells each collection apart from an ordinary channel
+and from the other. Re-clicking an already-open Saved/Drafts row re-activates the tab idempotently
+without duplicating it.
+
+This participation does **not** change the sidebar row's menu semantics: the Saved/Drafts row still
+deliberately has no channel context menu and cannot inherit mute, profile, or category-mutation
+actions from an unrelated real channel.
+
 ## Message search
 
 Message search reuses the same collection/navigation model as Saved. The difference is lifetime and

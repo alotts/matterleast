@@ -15,6 +15,7 @@
 #pragma once
 
 #include <QtCore/Qt>
+#include <QString>
 
 namespace Mattermost {
 namespace SidebarItem {
@@ -41,6 +42,17 @@ enum Destination {
     SavedDestination,
     DraftsDestination,
 };
+
+/**
+ * Canonical string discriminator for the virtual collection destinations.
+ *
+ * Saved and Drafts share the ordinary Channel navigation kind; these ids (which
+ * mirror the ItemIdRole values emitted by ChannelTree) are the discriminator
+ * that tells them apart from each other and from an ordinary channel in the
+ * tab/history model.
+ */
+inline const QString SavedDestinationId = QStringLiteral("virtual:saved");
+inline const QString DraftsDestinationId = QStringLiteral("virtual:drafts");
 
 /**
  * Shared model roles for sidebar rows.

@@ -66,6 +66,14 @@ public:
 	                     bool reachedNewest = false,
                          bool preserveIfOpen = false);
 
+    // Virtual collection destinations (Saved/Drafts) are presented through the
+    // navigation layer as ordinary Channel destinations. These accessors let
+    // that layer (and the sidebar activation path) lazily obtain and reveal the
+    // canonical singleton page for a sentinel destination id.
+    PostCollectionView* collectionPageForDestination(const QString& destination);
+    void revealCollectionPage(const QString& destination);
+    bool isTabbableCollectionPage(QWidget* page) const;
+
 	void changeEvent (QEvent* event) override;
 	void closeEvent(QCloseEvent *event) override;
 	void saveState ();

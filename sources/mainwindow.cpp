@@ -55,12 +55,15 @@
 #include "channel-tree/ChannelIcons.h"
 #include "channel-tree/ChannelItemDelegate.h"
 #include "channel-tree/ChannelQuickList.h"
+#include "channel-tree/SidebarItem.h"
+#include "channel-tree/ChannelTree.h"
 #include "channel-tree-dialogs/FilterListDialog.h"
 #include "channel-tree-dialogs/TeamChannelsListDialog.h"
 #include "channel-tree-dialogs/UserSearchDialog.h"
 #include "channel-tree-dialogs/UserGroupsDialog.h"
 #include "chat-area/ChatArea.h"
 #include "log.h"
+#include "navigation/NavigationUiController.h"
 #include "notifications/NotificationManager.h"
 #include "options/MLOptions.h"
 #include "post-collection/PostCollectionView.h"
@@ -641,29 +644,57 @@ void MainWindow::showCollectionPage(PostCollectionView* page)
     ui->chatAreaStackedWidget->setCurrentWidget(page);
 }
 
+PostCollectionView* MainWindow::collectionPageForDestination(const QString& destination)
+{
+    if (destination == SidebarItem::SavedDestinationId) {
+        if (!savedMessagesPage) {
+            savedMessagesPage = new PostCollectionView(
+                backend, PostCollectionView::Mode::Saved, ui->chatAreaStackedWidget);
+        }
+        return savedMessagesPage;
+    }
+    if (destination == SidebarItem::DraftsDestinationId) {
+        if (!draftsPage) {
+            draftsPage = new PostCollectionView(
+                backend, PostCollectionView::Mode::Drafts,
+                ui->chatAreaStackedWidget);
+            connect(draftsPage, &PostCollectionView::draftActivated,
+                    this, &MainWindow::openDraft);
+        }
+        return draftsPage;
+    }
+    return nullptr;
+}
+
+void MainWindow::revealCollectionPage(const QString& destination)
+{
+    PostCollectionView* page = collectionPageForDestination(destination);
+    if (!page) {
+        return;
+    }
+    showCollectionPage(page);
+    if (destination == SidebarItem::SavedDestinationId) {
+        page->activateSaved();
+    } else if (destination == SidebarItem::DraftsDestinationId) {
+        page->activateDrafts();
+    }
+}
+
+bool MainWindow::isTabbableCollectionPage(QWidget* page) const
+{
+    return page == savedMessagesPage || page == draftsPage;
+}
+
 void MainWindow::openSavedMessages(const QString& teamId)
 {
     Q_UNUSED(teamId)
-    if (!savedMessagesPage) {
-        savedMessagesPage = new PostCollectionView(
-            backend, PostCollectionView::Mode::Saved, ui->chatAreaStackedWidget);
-    }
-    showCollectionPage(savedMessagesPage);
-    savedMessagesPage->activateSaved();
+    NavigationUiController::instance(*this).presentCollection(SidebarItem::SavedDestinationId);
 }
 
 void MainWindow::openDrafts(const QString& teamId)
 {
     Q_UNUSED(teamId)
-    if (!draftsPage) {
-        draftsPage = new PostCollectionView(
-            backend, PostCollectionView::Mode::Drafts,
-            ui->chatAreaStackedWidget);
-        connect(draftsPage, &PostCollectionView::draftActivated,
-                this, &MainWindow::openDraft);
-    }
-    showCollectionPage(draftsPage);
-    draftsPage->activateDrafts();
+    NavigationUiController::instance(*this).presentCollection(SidebarItem::DraftsDestinationId);
 }
 
 void MainWindow::openMessageSearch()

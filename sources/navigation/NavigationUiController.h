@@ -32,15 +32,32 @@ class NavigationUiController final : public QObject
 {
     Q_OBJECT
 public:
+    // Saved/Drafts share the ordinary Channel kind. The discriminator below
+    // (never a new enum member) tells an ordinary channel apart from a virtual
+    // collection destination within that same kind. The shared Kind enum lives
+    // in NavigationTabsModel so Location and Entry use the same type.
     struct Location {
         QString channelId;
         QString rootId;
         QString postId;
 
-        bool isValid() const { return !channelId.isEmpty(); }
+        // Empty for an ordinary channel; "virtual:saved" / "virtual:drafts"
+        // for a Saved/Drafts collection destination.
+        QString destination;
+
+        NavigationTabsModel::Kind kind = NavigationTabsModel::Kind::Channel;
+
+        bool isValid() const
+        {
+            return kind == NavigationTabsModel::Kind::Channel
+                && (!channelId.isEmpty() || !destination.isEmpty());
+        }
         bool sameDestination(const Location& other) const
         {
-            return channelId == other.channelId && rootId == other.rootId;
+            return kind == other.kind
+                && channelId == other.channelId
+                && rootId == other.rootId
+                && destination == other.destination;
         }
     };
 
@@ -52,6 +69,7 @@ public:
     ChatArea* findThread(const QString& channelId, const QString& rootId) const;
     void presentChannel(ChatArea* area);
     void presentThread(ChatArea* area);
+    void presentCollection(const QString& destination);
     void openInTab(const QString& channelId,
                    const QString& rootId,
                    const QString& postId,
@@ -81,6 +99,7 @@ private:
     QString tabTitle(const Location& location) const;
     int appendNavigationTab(const Location& location);
     void ensureInitialTab();
+    void updateCollectionTab(const Location& location);
     void refreshTabBarVisibility();
     void setNavigationTabTitle(int index, const QString& title);
     void refreshTabUnreadVisual(const QString& channelId);
