@@ -55,6 +55,7 @@ private:
     QCheckBox* unreadModeIgnoreWhileFiltering = nullptr;
     QComboBox* emojiDefaultSkinTone_ = nullptr;
     QString originalChatFont;
+    QString originalMonospaceFont;
     QSpinBox* attachmentCacheSizeMB = nullptr;
     QSpinBox* diskChannelIdleHours = nullptr;
     QSpinBox* diskMaxMB = nullptr;

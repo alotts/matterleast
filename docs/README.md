@@ -21,6 +21,7 @@ This directory is the durable engineering context for MatterLeast. It is intenti
 | composer @mentions and user-group suggestions | [Mention autocomplete](mention-autocomplete.md) | changing user/group lookup, DM/GM mention scope, or completion merging |
 | user-group browser, creation, membership and editing | [User groups](user-groups.md) | changing custom-group CRUD, membership mutations, or sidebar entry points |
 | reaction quick bar/ranking | [Reaction quick bar](reaction-quick-bar.md) | changing ranking, cooling, persistence or custom emoji behavior |
+| appearance settings, message or code (monospace) font typography | [Appearance fonts](appearance-fonts.md) | changing font keys, default derivation, live-preview/Cancel semantics or which surfaces use the code font |
 | emoji picker, custom emoji lookup/search, live theme propagation | [Emoji resolution and picker search](emoji-resolution.md) | changing custom emoji discovery, caching, registry synchronization or picker palette behavior |
 | HTTP request headers, cookies, CSRF, HTTP/2 or TLS behavior | [HTTP client profile and transport](network-transport.md) | changing the shared request identity or transport negotiation |
 | debugging from logs | [Debug logging](debug-logging.md) | selecting categories or interpreting upload/read/navigation traces |
