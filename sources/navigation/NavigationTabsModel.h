@@ -42,6 +42,27 @@ public:
         return index >= 0 && index < entries_.size() ? &entries_.at(index) : nullptr;
     }
 
+    // Index reached by moving `delta` positions from `currentIndex`, wrapping.
+    // Returns -1 when empty; 0 when there is a single entry. An out-of-range
+    // `currentIndex` seeds the move from just before the first entry (forward)
+    // or from the first entry (backward) so cycling never restarts from 0.
+    int cycledIndex(int currentIndex, int delta) const
+    {
+        const int n = entries_.size();
+        if (n <= 0) {
+            return -1;
+        }
+        if (n == 1) {
+            return 0;
+        }
+
+        int base = currentIndex;
+        if (base < 0 || base >= n) {
+            base = delta > 0 ? -1 : 0;
+        }
+        return ((base + delta) % n + n) % n;
+    }
+
     int findDestination(const QString& channelId, const QString& rootId) const
     {
         for (int i = 0; i < entries_.size(); ++i) {

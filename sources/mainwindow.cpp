@@ -21,9 +21,12 @@
 
 #include <algorithm>
 
+#include <QAction>
+#include <QApplication>
 #include <QCloseEvent>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
+#include <QKeySequence>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPalette>
@@ -699,6 +702,17 @@ void MainWindow::createMenu()
 	mainMenu = new QMenu(ui->toolButton);
 
 	QMenu* fileMenu = mainMenu->addMenu("File");
+
+	// Application-wide exit. Using qApp->quit() (not MainWindow::close) runs the
+	// aboutToQuit state-saving path and bypasses the tray "hide on close"
+	// behavior, matching the tray Quit action.
+	QAction* quitAction = fileMenu->addAction(
+		tr("Quit"), qApp, &QApplication::quit);
+	quitAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+Q")));
+	quitAction->setShortcutContext(Qt::ApplicationShortcut);
+	quitAction->setMenuRole(QAction::QuitRole);
+	addAction(quitAction);
+
 	fileMenu->addAction("Logout", [this] {
 		backend.logout([this] {
 			doDeinit = true;

@@ -138,6 +138,54 @@ private slots:
         QCOMPARE(model.at(0)->postId, QStringLiteral("reply-2"));
     }
 
+    void cycledIndexHandlesEmptyAndSingleTab()
+    {
+        NavigationTabsModel empty;
+        QCOMPARE(empty.cycledIndex(0, 1), -1);
+        QCOMPARE(empty.cycledIndex(0, -1), -1);
+
+        NavigationTabsModel single;
+        NavigationTabsModel::Entry entry;
+        entry.channelId = QStringLiteral("channel-a");
+        single.append(entry);
+        QCOMPARE(single.cycledIndex(0, 1), 0);
+        QCOMPARE(single.cycledIndex(0, -1), 0);
+    }
+
+    void cycledIndexWrapsAround()
+    {
+        NavigationTabsModel model;
+        for (const QString& id : {
+                 QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c") }) {
+            NavigationTabsModel::Entry entry;
+            entry.channelId = id;
+            model.append(entry);
+        }
+
+        QCOMPARE(model.cycledIndex(0, 1), 1);
+        QCOMPARE(model.cycledIndex(1, 1), 2);
+        QCOMPARE(model.cycledIndex(2, 1), 0);
+        QCOMPARE(model.cycledIndex(2, -1), 1);
+        QCOMPARE(model.cycledIndex(1, -1), 0);
+        QCOMPARE(model.cycledIndex(0, -1), 2);
+    }
+
+    void cycledIndexSeedsOutOfRangeCurrentIndex()
+    {
+        NavigationTabsModel model;
+        for (const QString& id : {
+                 QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c") }) {
+            NavigationTabsModel::Entry entry;
+            entry.channelId = id;
+            model.append(entry);
+        }
+
+        QCOMPARE(model.cycledIndex(-1, 1), 0);
+        QCOMPARE(model.cycledIndex(-1, -1), 2);
+        QCOMPARE(model.cycledIndex(99, 1), 0);
+        QCOMPARE(model.cycledIndex(99, -1), 2);
+    }
+
     void movingTabsKeepsSemanticTargetsAligned()
     {
         NavigationTabsModel model;
