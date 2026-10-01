@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QAbstractTextDocumentLayout>
 #include <QFontMetrics>
+#include <QFontDatabase>
 #include <QImage>
 #include <QLayout>
 #include <QMouseEvent>
@@ -705,6 +706,155 @@ private slots:
         auto* codeBlock = widget.findChild<QPlainTextEdit*>(QStringLiteral("messageCodeBlock"));
         QVERIFY(codeBlock != nullptr);
         QCOMPARE(codeBlock->toPlainText(), QStringLiteral("first line\nsecond line\nthird line"));
+    }
+
+    void monospaceFontSettingChangesCodeFont()
+    {
+        auto* fontOption = MLOptions::instance()->optionObject<QString>(
+            CHAT_FONT, QApplication::font().toString());
+        const QString previousFont = fontOption->value().toString();
+        auto* monoOption = MLOptions::instance()->optionObject<QString>(
+            CHAT_MONOSPACE_FONT, QString());
+        const QString previousMono = monoOption->value().toString();
+
+        const QString fixedFamily =
+            QFontDatabase::systemFont(QFontDatabase::FixedFont).family();
+
+        QFont chatFont = QApplication::font();
+        chatFont.setPointSizeF(10.0);
+        fontOption->setValue(chatFont.toString());
+
+        QFont codeFont(fixedFamily);
+        codeFont.setPointSizeF(14.0);
+        monoOption->setValue(codeFont.toString());
+
+        MessageContentWidget widget;
+        widget.setMessage(QStringLiteral(
+            "Body `inlineCode` here\n\n```cpp\nint answer = 42;\n```"));
+        showAndSettle(widget, QSize(320, 260));
+
+        auto* codeBlock = widget.findChild<QPlainTextEdit*>(QStringLiteral("messageCodeBlock"));
+        QVERIFY(codeBlock != nullptr);
+        QVERIFY2(codeBlock->font().family().compare(fixedFamily, Qt::CaseInsensitive) == 0,
+                 qPrintable(QStringLiteral("fenced code must use the chosen monospace family (%1), got %2")
+                     .arg(fixedFamily, codeBlock->font().family())));
+        QVERIFY2(std::abs(codeBlock->font().pointSizeF() - 14.0) <= 1.0,
+                 qPrintable(QStringLiteral("fenced code must use the chosen size, got %1")
+                     .arg(codeBlock->font().pointSizeF())));
+
+        auto* richText = widget.findChild<QTextBrowser*>(QStringLiteral("messageRichText"));
+        QVERIFY(richText != nullptr);
+        const int pos = richText->document()->toPlainText().indexOf(QStringLiteral("inlineCode"));
+        QVERIFY2(pos >= 0, "inline code token must be rendered");
+        QTextCursor cursor(richText->document());
+        cursor.setPosition(pos + 1);
+        const QTextCharFormat format = cursor.charFormat();
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const QStringList families = format.fontFamilies().toStringList();
+        const bool matchesFamily = std::any_of(
+            families.cbegin(), families.cend(),
+            [&fixedFamily](const QString& f) {
+            return f.compare(fixedFamily, Qt::CaseInsensitive) == 0;
+        });
+#else
+        const bool matchesFamily = format.fontFamily().compare(fixedFamily, Qt::CaseInsensitive) == 0;
+#endif
+        QVERIFY2(matchesFamily,
+                 qPrintable(QStringLiteral("inline code must use the chosen monospace family (%1)")
+                     .arg(fixedFamily)));
+        qreal inlineSize = format.fontPointSize();
+        if (inlineSize <= 0.0) {
+            inlineSize = richText->document()->defaultFont().pointSizeF();
+        }
+        QVERIFY2(std::abs(inlineSize - 14.0) <= 2.0,
+                 qPrintable(QStringLiteral("inline code must use the chosen size, got %1")
+                     .arg(inlineSize)));
+
+        monoOption->setValue(previousMono);
+        fontOption->setValue(previousFont);
+    }
+
+    void monospaceFontDefaultsToSystemFixedAtChatSize()
+    {
+        auto* fontOption = MLOptions::instance()->optionObject<QString>(
+            CHAT_FONT, QApplication::font().toString());
+        const QString previousFont = fontOption->value().toString();
+        auto* monoOption = MLOptions::instance()->optionObject<QString>(
+            CHAT_MONOSPACE_FONT, QString());
+        const QString previousMono = monoOption->value().toString();
+
+        const QString fixedFamily =
+            QFontDatabase::systemFont(QFontDatabase::FixedFont).family();
+
+        monoOption->setValue(QString());
+
+        QFont chatFont = QApplication::font();
+        chatFont.setPointSizeF(12.0);
+        fontOption->setValue(chatFont.toString());
+
+        MessageContentWidget widget;
+        widget.setMessage(QStringLiteral("```cpp\nint answer = 42;\n```"));
+        showAndSettle(widget, QSize(320, 260));
+
+        auto* codeBlock = widget.findChild<QPlainTextEdit*>(QStringLiteral("messageCodeBlock"));
+        QVERIFY(codeBlock != nullptr);
+        QCOMPARE(codeBlock->font().family().compare(fixedFamily, Qt::CaseInsensitive), 0);
+        QVERIFY2(std::abs(codeBlock->font().pointSizeF() - 12.0) <= 1.0,
+                 qPrintable(QStringLiteral("unset monospace must follow the chat size, got %1")
+                     .arg(codeBlock->font().pointSizeF())));
+
+        monoOption->setValue(previousMono);
+        fontOption->setValue(previousFont);
+    }
+
+    void monospaceFontChangesMaterializedContentLive()
+    {
+        auto* fontOption = MLOptions::instance()->optionObject<QString>(
+            CHAT_FONT, QApplication::font().toString());
+        const QString previousFont = fontOption->value().toString();
+        auto* monoOption = MLOptions::instance()->optionObject<QString>(
+            CHAT_MONOSPACE_FONT, QString());
+        const QString previousMono = monoOption->value().toString();
+
+        const QString fixedFamily =
+            QFontDatabase::systemFont(QFontDatabase::FixedFont).family();
+
+        QFont chatFont = QApplication::font();
+        chatFont.setPointSizeF(10.0);
+        fontOption->setValue(chatFont.toString());
+
+        QFont firstCode(fixedFamily);
+        firstCode.setPointSizeF(11.0);
+        monoOption->setValue(firstCode.toString());
+
+        MessageContentWidget widget;
+        widget.setMessage(QStringLiteral("```cpp\nint answer = 42;\n```"));
+        showAndSettle(widget, QSize(320, 260));
+
+        auto codeBlock = [&widget]() {
+            return widget.findChild<QPlainTextEdit*>(QStringLiteral("messageCodeBlock"));
+        };
+        QVERIFY(codeBlock() != nullptr);
+        QCOMPARE(codeBlock()->font().family().compare(fixedFamily, Qt::CaseInsensitive), 0);
+        QVERIFY(std::abs(codeBlock()->font().pointSizeF() - 11.0) <= 1.0);
+
+        QFont secondCode(fixedFamily);
+        secondCode.setPointSizeF(17.0);
+        QSignalSpy geometrySpy(&widget, &MessageContentWidget::dimensionsChanged);
+
+        // The already-materialized post must update without switching tab or
+        // channel, exactly like a message-font change does.
+        monoOption->setValue(secondCode.toString());
+
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            return codeBlock() != nullptr
+                && std::abs(codeBlock()->font().pointSizeF() - 17.0) <= 1.5;
+        })(), 1000);
+        QTRY_VERIFY_WITH_TIMEOUT(geometrySpy.count() > 0, 1000);
+
+        monoOption->setValue(previousMono);
+        fontOption->setValue(previousFont);
     }
 #endif
 };

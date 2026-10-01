@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QImage>
 #include <QSet>
+#include <QFont>
 #include <QString>
 #include <QtGlobal>
 #include <QWidget>
@@ -86,6 +87,7 @@ private:
     QSet<QString> _inlineAttachmentFileIds;
     EmojiRegistry* _emojiRegistry = nullptr;
     QMetaObject::Connection _emojiAddedConnection;
+    QFont monospaceFont_;
 };
 
 } // namespace Mattermost
