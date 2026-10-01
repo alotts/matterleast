@@ -16,6 +16,7 @@ This directory is the durable engineering context for MatterLeast. It is intenti
 | desktop notification conditions, Favorites policy and preference modes | [Desktop notifications](desktop-notifications.md) | changing root-post eligibility, notification settings, muted-channel suppression or Following boundaries |
 | virtual sidebar views and collections | [Virtual sidebar destinations](sidebar-virtual-destinations.md) | changing Personal, Saved, Recent Mentions or search paging |
 | central navigation tabs, docked/tabbed/detached thread presentation | [Central navigation tabs](navigation-tabs.md) | changing tab ownership, semantic destinations or thread reparenting |
+| keyboard shortcuts for closing/cycling tabs or quitting | [Navigation tab and exit shortcuts](navigation-shortcuts.md) | changing shortcut keys, gating or the exit path |
 | channel discovery, channel creation, DM/GM picker and sidebar category actions | [Channel and conversation discovery](channel-discovery.md) | changing public-channel browsing, participant matching, or sidebar + actions |
 | channel topic preview expansion and hover dwell | [Channel topic hover](channel-topic-hover.md) | changing delayed topic popover, animation, mouse transitions or rendered Markdown |
 | native plugin ABI, loading, host/accessor services or extension points | [Plugin architecture](plugins.md) | changing plugin lifecycle, ABI versioning, discovery, or adding a new host/accessor/extension interface |
