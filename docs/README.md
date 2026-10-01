@@ -15,6 +15,7 @@ This directory is the durable engineering context for MatterLeast. It is intenti
 | unread/read state or Attention | [Following, Attention and read tracking](following-attention-read-tracking.md) | changing scroll-derived reads, resume cursors or server acknowledgement |
 | virtual sidebar views and collections | [Virtual sidebar destinations](sidebar-virtual-destinations.md) | changing Personal, Saved, Recent Mentions or search paging |
 | central navigation tabs, docked/tabbed/detached thread presentation | [Central navigation tabs](navigation-tabs.md) | changing tab ownership, semantic destinations or thread reparenting |
+| keyboard shortcuts for closing/cycling tabs or quitting | [Navigation tab and exit shortcuts](navigation-shortcuts.md) | changing shortcut keys, gating or the exit path |
 | channel discovery, channel creation, DM/GM picker and sidebar category actions | [Channel and conversation discovery](channel-discovery.md) | changing public-channel browsing, participant matching, or sidebar + actions |
 | native plugin ABI, loading, host/accessor services or extension points | [Plugin architecture](plugins.md) | changing plugin lifecycle, ABI versioning, discovery, or adding a new host/accessor/extension interface |
 | quoted replies | [Quoted replies](quoted-replies.md) | changing wire fallback or thread interaction |

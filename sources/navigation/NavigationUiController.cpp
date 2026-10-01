@@ -368,6 +368,79 @@ void NavigationUiController::setupThreadPane()
             ++activeTabIndex;
         }
     });
+
+    setupTabShortcuts();
+}
+
+void NavigationUiController::setupTabShortcuts()
+{
+    if (!navigationTabs) {
+        return;
+    }
+
+    auto* closeShortcut =
+        new QShortcut(QKeySequence(QStringLiteral("Ctrl+W")), &window);
+    auto* previousShortcut =
+        new QShortcut(QKeySequence(QStringLiteral("Ctrl+PgUp")), &window);
+    auto* nextShortcut =
+        new QShortcut(QKeySequence(QStringLiteral("Ctrl+PgDn")), &window);
+
+    connect(closeShortcut, &QShortcut::activated,
+            this, &NavigationUiController::closeActiveTab);
+    connect(previousShortcut, &QShortcut::activated,
+            this, &NavigationUiController::activatePreviousTab);
+    connect(nextShortcut, &QShortcut::activated,
+            this, &NavigationUiController::activateNextTab);
+}
+
+ChatArea* NavigationUiController::centralTabArea() const
+{
+    if (!navigationSurfaceStack) {
+        return nullptr;
+    }
+    QWidget* surface = navigationSurfaceStack->currentWidget();
+    if (!surface) {
+        return nullptr;
+    }
+    if (surface == mainStack) {
+        return mainStack
+            ? qobject_cast<ChatArea*>(mainStack->currentWidget())
+            : nullptr;
+    }
+    return qobject_cast<ChatArea*>(surface);
+}
+
+void NavigationUiController::closeActiveTab()
+{
+    if (!navigationTabs || activeTabIndex < 0 || tabModel.count() <= 1) {
+        return;
+    }
+    if (!centralTabArea()) {
+        return;
+    }
+    closeTab(activeTabIndex);
+}
+
+void NavigationUiController::activatePreviousTab()
+{
+    if (!navigationTabs || tabModel.count() <= 1) {
+        return;
+    }
+    const int next = tabModel.cycledIndex(activeTabIndex, -1);
+    if (next >= 0 && next != activeTabIndex) {
+        activateTab(next);
+    }
+}
+
+void NavigationUiController::activateNextTab()
+{
+    if (!navigationTabs || tabModel.count() <= 1) {
+        return;
+    }
+    const int next = tabModel.cycledIndex(activeTabIndex, 1);
+    if (next >= 0 && next != activeTabIndex) {
+        activateTab(next);
+    }
 }
 
 void NavigationUiController::updateIdentityTooltip()

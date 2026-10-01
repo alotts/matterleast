@@ -103,8 +103,14 @@ private:
     void restoreSessionBookmark(ChatArea* area, const QString& postId);
     void setupSidebarHeader();
     void setupThreadPane();
+    void setupTabShortcuts();
     void updateIdentityTooltip();
     void updateHistoryButtons();
+
+    ChatArea* centralTabArea() const;
+    void closeActiveTab();
+    void activatePreviousTab();
+    void activateNextTab();
 
     Location captureLocation(ChatArea* area) const;
     Location captureCollection(PostCollectionView* page) const;
