@@ -9,7 +9,6 @@
 #include <QAbstractTextDocumentLayout>
 #include <QApplication>
 #include <QEvent>
-#include <QFontDatabase>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QMouseEvent>
@@ -39,6 +38,7 @@
 #include "options/MLOptions.h"
 #include "ui/EmojiFont.h"
 #include "ui/EmojiPresentation.h"
+#include "ui/MonospaceFont.h"
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 #include "qsourcehighliter.h"
@@ -632,6 +632,7 @@ class CodeBlockEdit final : public QPlainTextEdit
 public:
     CodeBlockEdit(const QString& code,
                   const QString& language,
+                  const QFont& codeFont,
                   std::function<void()> heightChanged,
                   QWidget* parent = nullptr)
         : QPlainTextEdit(parent)
@@ -646,14 +647,6 @@ public:
         setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         setMinimumWidth(0);
         setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
-        QFont codeFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-        qreal pointSize = font().pointSizeF();
-        if (pointSize <= 0.0) {
-            pointSize = fontInfo().pointSizeF();
-        }
-        if (pointSize > 0.0) {
-            codeFont.setPointSizeF(pointSize);
-        }
         setFont(codeFont);
         document()->setDefaultFont(codeFont);
         document()->setDocumentMargin(6);
@@ -750,15 +743,18 @@ QString fragmentHtml(QTextDocument& document, int start, int end)
 
 #endif
 
-QString formatRichTextForFont(const QString& message, const QFont& font)
+QString formatRichTextForFont(const QString& message,
+                              const QFont& font,
+                              const QFont& monospaceFont)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QTextDocument document;
     document.setDefaultFont(font);
-    MessageFormatter::buildMarkdownDocument(document, message);
+    MessageFormatter::buildMarkdownDocument(document, message, monospaceFont);
     return document.toHtml();
 #else
     Q_UNUSED(font);
+    Q_UNUSED(monospaceFont);
     return MessageFormatter::formatMessageText(message);
 #endif
 }
@@ -776,10 +772,23 @@ MessageContentWidget::MessageContentWidget(QWidget* parent)
 
     auto* chatFontOption = MLOptions::instance()->optionObject<QString>(
         CHAT_FONT, font().toString());
+    monospaceFont_ = MonospaceFont::resolved(font());
+    auto* monospaceFontOption = MLOptions::instance()->optionObject<QString>(
+        CHAT_MONOSPACE_FONT, QString());
     applyChatFont(chatFontOption->value().toString());
     connect(chatFontOption, &MLOptionObject::changed, this,
             [this](const QVariant& value) {
         applyChatFont(value.toString());
+    });
+    connect(monospaceFontOption, &MLOptionObject::changed, this,
+            [this](const QVariant&) {
+        // Recompute before rebuilding: the code font has its own family and
+        // point size and is not otherwise refreshed by applyChatFont.
+        monospaceFont_ = MonospaceFont::resolved(font());
+        if (!_sourceMessage.isEmpty()) {
+            const QString sourceMessage = _sourceMessage;
+            setMessage(sourceMessage);
+        }
     });
 
     connect(&EmojiRegistryNotifier::instance(),
@@ -838,7 +847,7 @@ void MessageContentWidget::setMessage(const QString& message)
     const QVector<MessageSegment> segments = splitMessageSegments(message);
     for (const MessageSegment& segment : segments) {
         if (segment.quote) {
-            addQuote(formatRichTextForFont(segment.text, font()));
+            addQuote(formatRichTextForFont(segment.text, font(), monospaceFont_));
             continue;
         }
         if (segment.text.isEmpty()) {
@@ -932,6 +941,9 @@ void MessageContentWidget::applyChatFont(const QString& serializedFont)
     if (font() != nextFont) {
         setFont(nextFont);
     }
+    // The monospace default derives its size from the chat font when the user
+    // has not chosen an independent code size, so recompute it here.
+    monospaceFont_ = MonospaceFont::resolved(nextFont);
     // The same target font may already have reached us through QWidget font
     // inheritance before the option notification. The rich-text documents keep
     // their own default font/height state, so the option change must still
@@ -1006,7 +1018,7 @@ void MessageContentWidget::addMarkdownContent(const QString& message)
 {
     QTextDocument document;
     document.setDefaultFont(font());
-    MessageFormatter::buildMarkdownDocument(document, message);
+    MessageFormatter::buildMarkdownDocument(document, message, monospaceFont_);
 
     int richStart = 0;
     QTextBlock block = document.begin();
@@ -1048,7 +1060,8 @@ void MessageContentWidget::addMarkdownContent(const QString& message)
 void MessageContentWidget::addCodeBlock(const QString& code, const QString& language)
 {
     contentLayout->addWidget(new CodeBlockEdit(
-        code, language, [this] { scheduleDimensionsChanged(); }, this));
+        code, language, monospaceFont_,
+        [this] { scheduleDimensionsChanged(); }, this));
 }
 #endif
 

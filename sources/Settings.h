@@ -38,6 +38,10 @@ static constexpr bool COMPOSER_SEND_WITH_CTRL_ENTER_DEFAULT = false;
 
 static constexpr const char* CHAT_FONT = "chat/font";
 
+// Monospace/code font for message content. Serialized QFont. Empty means
+// "system fixed font at the current message-font size".
+static constexpr const char* CHAT_MONOSPACE_FONT = "chat/monospaceFont";
+
 // Unread-mode presentation policy. "Channels only" keeps the Following tab
 // available while the sidebar's unread filter is active. Text filtering may
 // temporarily suspend the unread gate so a known read channel can still be

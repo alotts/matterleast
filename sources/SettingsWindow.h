@@ -51,6 +51,7 @@ private:
     QCheckBox* unreadModeChannelsOnly = nullptr;
     QCheckBox* unreadModeIgnoreWhileFiltering = nullptr;
     QString originalChatFont;
+    QString originalMonospaceFont;
     QSpinBox* attachmentCacheSizeMB = nullptr;
     QSpinBox* diskChannelIdleHours = nullptr;
     QSpinBox* diskMaxMB = nullptr;

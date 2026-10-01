@@ -2,7 +2,9 @@
 
 #include <algorithm>
 
+#include <QFont>
 #include <QTextBlock>
+#include <QTextCharFormat>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTextFormat>
@@ -10,8 +12,11 @@
 #include "backend/emoji/EmojiInfo.h"
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+#include <QPair>
 #include <QRegularExpression>
+#include <QStringList>
 #include <QTextFragment>
+#include <QVector>
 #endif
 
 namespace Mattermost {
@@ -558,9 +563,56 @@ void separateLargeImages(QTextDocument& document)
     }
 }
 
+// Mutual-exclusion guard so emoji and code restyling cannot race: both run on
+// the same document in this translation unit and are only invoked from
+// buildMarkdownDocument.
+void applyMonospaceCodeFont(QTextDocument& document, const QFont& monospaceFont)
+{
+    if (monospaceFont.family().isEmpty()) {
+        return;
+    }
+
+    // Collect every fixed-pitch range first. Merging a char format can split or
+    // merge adjacent fragments, which invalidates an in-progress block/fragment
+    // iterator, so apply the edits afterwards from the end.
+    QVector<QPair<int, int>> ranges;
+    for (QTextBlock block = document.begin(); block.isValid(); block = block.next()) {
+        for (QTextBlock::iterator it = block.begin(); !it.atEnd(); ++it) {
+            const QTextFragment fragment = it.fragment();
+            if (fragment.isValid() && fragment.charFormat().fontFixedPitch()) {
+                ranges.push_back({fragment.position(), fragment.length()});
+            }
+        }
+    }
+
+    if (ranges.isEmpty()) {
+        return;
+    }
+
+    for (auto it = ranges.cend(); it != ranges.cbegin();) {
+        --it;
+        QTextCursor cursor(&document);
+        cursor.setPosition(it->first);
+        cursor.setPosition(it->first + it->second, QTextCursor::KeepAnchor);
+        QTextCharFormat mono;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        mono.setFontFamilies(QStringList {monospaceFont.family()});
+#else
+        mono.setFontFamily(monospaceFont.family());
+#endif
+        if (monospaceFont.pointSizeF() > 0.0) {
+            mono.setFontPointSize(monospaceFont.pointSizeF());
+        } else if (monospaceFont.pixelSize() > 0) {
+            mono.setProperty(QTextFormat::FontPixelSize, monospaceFont.pixelSize());
+        }
+        cursor.mergeCharFormat(mono);
+    }
+}
+
 } // namespace
 
-void buildMarkdownDocument(QTextDocument& document, const QString& text)
+void buildMarkdownDocument(QTextDocument& document, const QString& text,
+                           const QFont& monospaceFont)
 {
     // QTextDocument::clear() is allowed to reset document-level state. Preserve
     // the caller's base font explicitly because Markdown heading sizes are
@@ -588,6 +640,11 @@ void buildMarkdownDocument(QTextDocument& document, const QString& text)
     // QTextImageFormat objects, so enabling raw user HTML is unnecessary.
     replaceEmojisInDocument(document);
     separateLargeImages(document);
+
+    // Code spans are marked FixedPitch by the Markdown parser. Restyle them to
+    // the user-selected monospace font (family and independent size) after all
+    // other document edits so positions are stable.
+    applyMonospaceCodeFont(document, monospaceFont);
 }
 #endif
 

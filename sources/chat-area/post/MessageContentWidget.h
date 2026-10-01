@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFont>
 #include <QString>
 #include <QtGlobal>
 #include <QWidget>
@@ -47,6 +48,7 @@ private:
     bool paletteRefreshPending = false;
     QString _sourceMessage;
     bool _jumboEmojiMessage = false;
+    QFont monospaceFont_;
 };
 
 } // namespace Mattermost

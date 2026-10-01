@@ -40,6 +40,7 @@
 #include "Settings.h"
 #include "options/MLOptions.h"
 #include "ui_SettingsWindow.h"
+#include "ui/MonospaceFont.h"
 
 namespace Mattermost {
 namespace {
@@ -230,6 +231,51 @@ SettingsWindow::SettingsWindow(QWidget *parent) :
     chatFontForm->addRow(tr("Size:"), chatTextSizeEditor);
 
     appearanceLayout->addWidget(chatFontGroup);
+
+    auto* codeFontGroup = new QGroupBox(tr("Code"), appearancePage);
+    auto* codeFontForm = new QFormLayout(codeFontGroup);
+
+    auto* codeFontOption = options->optionObject<QString>(
+        CHAT_MONOSPACE_FONT, QString());
+    originalMonospaceFont = codeFontOption->value().toString();
+
+    // The monospace size is independent of the message font, so its default
+    // presentation follows the resolved monospace font (system fixed family at
+    // the current chat size when the option is empty).
+    QFont codeFont = MonospaceFont::resolved(chatFont);
+
+    auto* codeFontFamily = new QFontComboBox(codeFontGroup);
+    codeFontFamily->setObjectName(QStringLiteral("codeFontFamily"));
+    codeFontFamily->setFontFilters(QFontComboBox::MonospacedFonts);
+    codeFontFamily->setCurrentFont(codeFont);
+    codeFontForm->addRow(tr("Font:"), codeFontFamily);
+
+    auto* codeTextSizeEditor = new QWidget(codeFontGroup);
+    auto* codeTextSizeLayout = new QHBoxLayout(codeTextSizeEditor);
+    codeTextSizeLayout->setContentsMargins(0, 0, 0, 0);
+    codeTextSizeLayout->setSpacing(8);
+
+    auto* codeTextSizeSlider = new QSlider(Qt::Horizontal, codeTextSizeEditor);
+    codeTextSizeSlider->setObjectName(QStringLiteral("codeTextSizeSlider"));
+    codeTextSizeSlider->setRange(MinChatFontPointSize,
+                                 MaxChatFontPointSize);
+    codeTextSizeSlider->setSingleStep(1);
+    codeTextSizeSlider->setPageStep(2);
+    codeTextSizeSlider->setMinimumWidth(140);
+    codeTextSizeSlider->setValue(chatFontPointSize(codeFont));
+
+    auto* codeTextSizeSpin = new QSpinBox(codeTextSizeEditor);
+    codeTextSizeSpin->setObjectName(QStringLiteral("codeTextSizeSpin"));
+    codeTextSizeSpin->setRange(MinChatFontPointSize,
+                               MaxChatFontPointSize);
+    codeTextSizeSpin->setSuffix(tr(" pt"));
+    codeTextSizeSpin->setValue(codeTextSizeSlider->value());
+
+    codeTextSizeLayout->addWidget(codeTextSizeSlider, 1);
+    codeTextSizeLayout->addWidget(codeTextSizeSpin);
+    codeFontForm->addRow(tr("Size:"), codeTextSizeEditor);
+
+    appearanceLayout->addWidget(codeFontGroup);
     appearanceLayout->addWidget(makeDescription(
         appearancePage,
         tr("Font changes are previewed immediately in materialized chat messages. "
@@ -261,6 +307,37 @@ SettingsWindow::SettingsWindow(QWidget *parent) :
     connect(chatFontFamily, &QFontComboBox::currentFontChanged, this,
             [updateChatFontOption](const QFont&) {
         updateChatFontOption();
+    });
+
+    const auto updateCodeFontOption =
+        [this, codeFontFamily, codeTextSizeSlider, codeFontOption] {
+        QFont updated = MonospaceFont::resolved(font());
+        QString stored = codeFontOption->value().toString();
+        QFont parsed;
+        if (!stored.isEmpty() && parsed.fromString(stored)) {
+            updated = parsed;
+        }
+        updated.setFamily(codeFontFamily->currentFont().family());
+        updated.setPointSizeF(codeTextSizeSlider->value());
+        codeFontOption->setValue(updated.toString());
+    };
+
+    connect(codeTextSizeSlider, &QSlider::valueChanged, this,
+            [codeTextSizeSpin, updateCodeFontOption](int value) {
+        if (codeTextSizeSpin->value() != value) {
+            codeTextSizeSpin->setValue(value);
+        }
+        updateCodeFontOption();
+    });
+    connect(codeTextSizeSpin, qOverload<int>(&QSpinBox::valueChanged), this,
+            [codeTextSizeSlider](int value) {
+        if (codeTextSizeSlider->value() != value) {
+            codeTextSizeSlider->setValue(value);
+        }
+    });
+    connect(codeFontFamily, &QFontComboBox::currentFontChanged, this,
+            [updateCodeFontOption](const QFont&) {
+        updateCodeFontOption();
     });
 
     auto* cacheScroll = new QScrollArea(tabs);
@@ -382,6 +459,9 @@ void SettingsWindow::reject()
     MLOptions::instance()
         ->optionObject<QString>(CHAT_FONT, font().toString())
         ->setValue(originalChatFont);
+    MLOptions::instance()
+        ->optionObject<QString>(CHAT_MONOSPACE_FONT, QString())
+        ->setValue(originalMonospaceFont);
     QDialog::reject();
 }
 
