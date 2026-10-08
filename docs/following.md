@@ -79,6 +79,12 @@ unread followed thread remains in Attention even when its parent channel/DM is
 muted. Synthetic thread-shaped mentions are not explicit follows and remain
 subject to mute suppression.
 
+Mute suppresses this Following/Attention projection, not the regular channel
+sidebar's unread treatment: `ChannelActivityTracker` still reports a muted
+channel as unread when it has new messages (`SidebarService::isChannelUnread`),
+so the channel row appears unread until viewed. Mute only suppresses desktop
+notifications, which is a separate policy in `MainWindow::messageNotify`.
+
 ### Thread rows
 
 Thread rows primarily come from the Mattermost CRT followed-thread snapshot.

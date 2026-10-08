@@ -240,19 +240,42 @@ private slots:
         QCOMPARE(tracker.recentTime(QStringLiteral("channel")), uint64_t(3000));
     }
 
-    void mutedChannelOnlyRequiresAttentionForMention()
+    void mutedChannelWithNewMessagesShowsUnread()
     {
         ChannelActivityTracker tracker;
         setMembership(tracker, 1000, 5, 5, true, 0, 0, true, true);
         synchronize(tracker, 2000, 7, 7, true, false);
 
+        // Mute suppresses notifications, not unread state: a muted channel
+        // with new messages is still reported unread.
+        QVERIFY(tracker.isUnread(QStringLiteral("channel")));
+
+        // Viewing the muted channel consumes the unread activity.
+        tracker.recordViewed(QStringLiteral("channel"), 2000, 7, 7, true);
         QVERIFY(!tracker.isUnread(QStringLiteral("channel")));
+    }
+
+    void mutedChannelClearActivityWithoutMessagesStaysRead()
+    {
+        ChannelActivityTracker tracker;
+        setMembership(tracker, 1000, 5, 5, true, 0, 0, true, true);
+        synchronize(tracker, 1000, 5, 5, true, false);
+
+        // A muted channel with no new messages is not unread either.
+        QVERIFY(!tracker.isUnread(QStringLiteral("channel")));
+    }
+
+    void mutedChannelMentionStillAlerts()
+    {
+        ChannelActivityTracker tracker;
+        setMembership(tracker, 1000, 5, 5, true, 0, 0, true, true);
+        synchronize(tracker, 2000, 7, 7, true, false);
 
         tracker.setMentioned(QStringLiteral("channel"), true);
         QVERIFY(tracker.isUnread(QStringLiteral("channel")));
 
         tracker.setMentioned(QStringLiteral("channel"), false);
-        QVERIFY(!tracker.isUnread(QStringLiteral("channel")));
+        QVERIFY(tracker.isUnread(QStringLiteral("channel")));
 
         tracker.setMuted(QStringLiteral("channel"), false);
         QVERIFY(tracker.isUnread(QStringLiteral("channel")));
