@@ -647,7 +647,17 @@ void ChannelTree::activateChannelItem(QTreeWidgetItem* item)
                     item->data(0, ItemIdRole).toString())) {
                 if (selected->type == BackendChannel::directChannel
                     || selected->type == BackendChannel::groupChannel) {
-                    admitStoredConversation(*selected);
+                    // Admission structurally mutates the tree (reconcile +
+                    // takeChild), which re-emits QTreeWidget::currentItemChanged
+                    // and re-enters activateChannelItem() here. While the tree
+                    // is already being rendered this activation is that re-entry
+                    // (a dropped/moving DM row re-selected as current); defer
+                    // admission so a takeChild/currentItemChanged/admission loop
+                    // cannot overflow the stack. The in-flight render owns the
+                    // structural mutation and places the promoted channel.
+                    if (!renderingSidebar) {
+                        admitStoredConversation(*selected);
+                    }
                 }
             }
         }

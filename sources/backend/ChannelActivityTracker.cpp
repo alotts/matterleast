@@ -315,7 +315,10 @@ bool ChannelActivityTracker::isUnread(const QString& channelId) const
         || (!entry.rootUnreadMode && entry.runtimeReplyMentioned);
     const bool unreadActivity = entry.serverUnreadActivity || entry.runtimeUnreadActivity
         || (!entry.rootUnreadMode && entry.runtimeReplyUnreadActivity);
-    return mentioned || (!entry.muted && unreadActivity);
+    // A question on mute is typically on notifications only: a muted channel
+    // still appears unread when it has new messages. Viewing the channel (or
+    // mention state) drives it back to read exactly as for an unmuted channel.
+    return mentioned || unreadActivity;
 }
 
 bool ChannelActivityTracker::hasMention(const QString& channelId) const
