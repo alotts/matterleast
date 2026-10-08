@@ -273,7 +273,8 @@ void QuotedPostPreview::refreshText()
     // (notably consecutive quote lines), which made the edit/reply preview
     // collapse user-visible newlines even though the composer source was intact.
     messageBrowser->document()->setDefaultFont(messageBrowser->font());
-    MessageFormatter::buildMarkdownDocument(*messageBrowser->document(), fullText);
+    MessageFormatter::buildMarkdownDocument(*messageBrowser->document(), fullText,
+                                            nullptr, QFont(), true);
 #else
     messageBrowser->setHtml(MessageFormatter::formatMessageText(fullText));
 #endif

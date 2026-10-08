@@ -16,7 +16,8 @@ QString formatMessageText(const QString& text, EmojiRegistry* registry = nullptr
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 void buildMarkdownDocument(QTextDocument& document, const QString& text,
                            EmojiRegistry* registry = nullptr,
-                           const QFont& monospaceFont = QFont());
+                           const QFont& monospaceFont = QFont(),
+                           bool allowHtml = false);
 #endif
 
 } // namespace MessageFormatter
