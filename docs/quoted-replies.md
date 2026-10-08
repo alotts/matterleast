@@ -59,6 +59,29 @@ Clicking the rendered quote navigates to the referenced post through `ChatArea::
 
 The older **Reply in thread** action is separate and continues to use Mattermost's native thread mechanism.
 
+### Embedded HTML in quote surfaces
+
+Quoted content frequently reaches the client from the server as raw HTML embedded in
+the message body, rather than as a bare `>` blockquote line. To display that quote as
+formatted text instead of escaped source, the two quote **surfaces** interpret HTML:
+
+- `QuoteBlock` blockquote segments (`>`-prefixed content) — `MessageContentWidget`.
+- `QuotedPostPreview` (the compact quoted-reply preview on both composer and timeline).
+
+Both call `MessageFormatter::buildMarkdownDocument(..., allowHtml = true)`. Ordinary
+post bodies (`addMarkdownContent`, `formatMessageText`, channel headers) keep
+`MarkdownNoHTML`, so freely authored HTML/script in a normal message is still escaped,
+never interpreted.
+
+The escape is intentionally limited to visually delimited quote contexts, which lowers
+the risk of confusing rendered HTML for raw source. Quote renderers share `QTextDocument`
+HTML handling: no scripting is enabled for HTML content, inline images are resolved only
+through the app's own emoji/attachment path (never arbitrary remote URLs), and link
+navigation remains governed by each surface's existing link policy. HTML that appears
+**outside** a `>` blockquote (a web-app quote embedded mid-body) is out of scope and
+remains escaped. If a stricter posture is ever desired, sanitize a known tag set instead
+of toggling `MarkdownNoHTML`.
+
 ## Interoperability
 
 The property is Mattermost-Qt-specific metadata, while the Markdown prefix is the compatibility representation for standard Mattermost clients. Clients that ignore the property still show a conventional blockquote and a clickable post link, followed by the real reply body.
