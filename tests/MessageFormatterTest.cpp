@@ -240,6 +240,13 @@ private slots:
 
         QVERIFY(!html.contains(QStringLiteral("<script"), Qt::CaseInsensitive));
         QVERIFY(!html.contains(QStringLiteral("<b>bold</b>"), Qt::CaseInsensitive));
+
+        // Quote embeds arrive as <div class="post-body">…</div>; ordinary
+        // message bodies must not interpret that markup either.
+        const QString div = MessageFormatter::formatMessageText(
+            QStringLiteral("<div class=\"post-body\"><b>bold</b> quoted</div>"));
+        QVERIFY(!div.contains(QStringLiteral("<div"), Qt::CaseInsensitive));
+        QVERIFY(div.contains(QStringLiteral("&lt;div"), Qt::CaseInsensitive));
 #else
         QSKIP("Qt Markdown renderer is enabled starting with Qt 6.10");
 #endif

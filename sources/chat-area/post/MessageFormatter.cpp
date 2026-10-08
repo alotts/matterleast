@@ -714,7 +714,7 @@ void applyMonospaceCodeFont(QTextDocument& document, const QFont& monospaceFont)
 
 void buildMarkdownDocument(QTextDocument& document, const QString& text,
                            EmojiRegistry* registry,
-                           const QFont& monospaceFont)
+                           const QFont& monospaceFont, bool allowHtml)
 {
     // QTextDocument::clear() is allowed to reset document-level state. Preserve
     // the caller's base font explicitly because Markdown heading sizes are
@@ -727,9 +727,14 @@ void buildMarkdownDocument(QTextDocument& document, const QString& text,
     // Parse the original Markdown verbatim. In particular, do not HTML-escape
     // quotes or ampersands before parsing: entities inside code spans are not
     // decoded by CommonMark, which used to turn a literal `"` into &quot;.
-    // Raw HTML is disabled at the parser level instead.
+    // Raw HTML is disabled at the parser level for ordinary user prose. Quote
+    // surfaces (blockquote segments and the quoted-reply preview) opt in via
+    // allowHtml because they are already visually delimited as quoted content,
+    // and quoted text frequently arrives from the server as raw HTML.
     QTextDocument::MarkdownFeatures features(QTextDocument::MarkdownDialectGitHub);
-    features.setFlag(QTextDocument::MarkdownNoHTML);
+    if (!allowHtml) {
+        features.setFlag(QTextDocument::MarkdownNoHTML);
+    }
     const QString markdown = promoteMultilineCodeSpans(text);
     document.setMarkdown(preserveUserLineBreaks(markdown), features);
 

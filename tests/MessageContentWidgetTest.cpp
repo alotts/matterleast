@@ -278,6 +278,38 @@ private slots:
 #endif
     }
 
+    void blockquoteEmbeddedHtmlRendersAsText()
+    {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+        MessageContentWidget widget;
+        widget.setMessage(QStringLiteral("> <b>bold</b> quoted\n\nreply"));
+        showAndSettle(widget, QSize(320, 120));
+
+        const auto browsers = widget.findChildren<QTextBrowser*>();
+        QVERIFY2(!browsers.isEmpty(), "A quoted segment must produce a text browser");
+        QVERIFY2(browsers.size() >= 2,
+                 "Quote and reply body must both render as text browsers");
+
+        QString allText;
+        for (QTextBrowser* browser : browsers) {
+            allText += browser->document()->toPlainText();
+        }
+
+        // The embedded HTML must be interpreted, not shown as escaped markup.
+        QVERIFY2(allText.contains(QStringLiteral("bold quoted")),
+                 qPrintable(QStringLiteral("rendered text was: '%1'").arg(allText)));
+        QVERIFY2(!allText.contains(QStringLiteral("<b>")),
+                 qPrintable(QStringLiteral("escaped source leaked: '%1'").arg(allText)));
+        QVERIFY2(!allText.contains(QStringLiteral("&lt;b&gt;")),
+                 qPrintable(QStringLiteral("escaped entity leaked: '%1'").arg(allText)));
+        QVERIFY2(!allText.contains(QStringLiteral("&lt;div")),
+                 qPrintable(QStringLiteral("escaped tag leaked: '%1'").arg(allText)));
+        QVERIFY(allText.contains(QStringLiteral("reply")));
+#else
+        QSKIP("Quote HTML rendering requires Qt 5.14 or newer");
+#endif
+    }
+
     void paletteChangeDefersContentRebuild()
     {
         MessageContentWidget widget;

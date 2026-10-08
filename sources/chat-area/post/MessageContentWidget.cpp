@@ -361,12 +361,13 @@ public:
         finishContent(jumboEmoji);
     }
 
-    void setContentMarkdown(const QString& markdown, bool jumboEmoji = false)
+    void setContentMarkdown(const QString& markdown, bool jumboEmoji = false,
+                            bool allowHtml = false)
     {
         QTextDocument* target = document();
         target->setDefaultFont(font());
         MessageFormatter::buildMarkdownDocument(
-            *target, markdown, _emojiRegistry);
+            *target, markdown, _emojiRegistry, QFont(), allowHtml);
         finishContent(jumboEmoji);
     }
 #endif
@@ -530,7 +531,7 @@ public:
             }
         }, emojiRegistry, this);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-        text->setContentMarkdown(markdown);
+        text->setContentMarkdown(markdown, false, true);
 #else
         text->setContentHtml(
             MessageFormatter::formatMessageText(markdown, emojiRegistry));
@@ -902,16 +903,21 @@ QTextDocumentFragment fragmentForRange(QTextDocument& document, int start, int e
 
 QString formatRichTextForFont(const QString& message,
                               const QFont& font,
-                              const QFont& monospaceFont)
+                              EmojiRegistry* registry,
+                              const QFont& monospaceFont,
+                              bool allowHtml = false)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QTextDocument document;
     document.setDefaultFont(font);
-    MessageFormatter::buildMarkdownDocument(document, message, monospaceFont);
+    MessageFormatter::buildMarkdownDocument(
+        document, message, registry, monospaceFont, allowHtml);
     return document.toHtml();
 #else
     Q_UNUSED(font);
     Q_UNUSED(monospaceFont);
+    Q_UNUSED(allowHtml);
+    Q_UNUSED(registry);
     return MessageFormatter::formatMessageText(message);
 #endif
 }
@@ -1038,7 +1044,11 @@ void MessageContentWidget::setMessage(const QString& message)
     const QVector<MessageSegment> segments = splitMessageSegments(message);
     for (const MessageSegment& segment : segments) {
         if (segment.quote) {
-            addQuote(formatRichTextForFont(segment.text, font(), monospaceFont_));
+            // Quote content frequently arrives from the server as raw HTML, so
+            // enable HTML interpretation here (and again in QuoteBlock's own
+            // render) while ordinary message bodies keep MarkdownNoHTML.
+            addQuote(formatRichTextForFont(segment.text, font(), _emojiRegistry,
+                                          monospaceFont_, true));
             continue;
         }
         if (segment.text.isEmpty()) {
