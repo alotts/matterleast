@@ -60,6 +60,7 @@
 #include "channel-tree/ChannelItemDelegate.h"
 #include "channel-tree/ChannelQuickList.h"
 #include "channel-tree/SidebarUnreadPolicy.h"
+#include "chat-area/PostFilterPolicy.h"
 #include "channel-tree-dialogs/FilterListDialog.h"
 #include "channel-tree-dialogs/TeamChannelsListDialog.h"
 #include "channel-tree-dialogs/UserSearchDialog.h"
@@ -907,18 +908,18 @@ void MainWindow::messageNotify(BackendChannel& channel, const BackendPost& post)
 		return;
 	}
 
-	const bool directConversation = channel.type == BackendChannel::directChannel
-		|| channel.type == BackendChannel::groupChannel;
-	if (post.root_id.isEmpty()) {
-		// Ordinary activity in public/private channels belongs in unread state,
-		// not in desktop attention. Only mentions and direct/group messages are
-		// actionable enough to flash the taskbar or show a desktop notification.
-		if (!directConversation && !post.currentUserMentioned) {
-			return;
-		}
-	} else if (!post.currentUserMentioned) {
+	const BackendUser* loginUser = backend.getStorage().loginUser;
+	if (!shouldShowMainTimelinePost(post.type, post.props.toObject(),
+	                                loginUser ? loginUser->username : QString())) {
+		// Routine join/leave membership churn has no descriptive content worth
+		// an alert; only membership events about the current user notify.
+		return;
+	}
+
+	if (!post.root_id.isEmpty() && !post.currentUserMentioned) {
 		// Until full followed-thread desktop notification preferences are modeled,
-		// keep thread notifications mention-driven just as before.
+		// keep thread notifications mention-driven just as before. Root messages,
+		// by contrast, notify unconditionally in unmuted channels below.
 		return;
 	}
 
