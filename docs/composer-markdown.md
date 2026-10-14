@@ -6,11 +6,11 @@ The text visible in `MessageTextEditWidget` is the same text used by drafts, pos
 
 ## Formatting toolbar
 
-The toolbar appears above the composer while the editor has focus. Its persistent *show on focus* preference is stored in `composer/formattingToolbarVisible` through `MLOptions`.
+The toolbar appears above the composer. Its visibility is governed at all times by the persistent `composer/formattingToolbarVisible` preference stored through `MLOptions`, not by editor focus; losing focus keeps the toolbar visible according to the preference.
 
 - `Ctrl/Cmd+Up` enables the toolbar preference and shows it.
 - `Ctrl/Cmd+Down` disables the preference and hides it.
-- Losing focus hides the current toolbar without changing the preference.
+- Losing focus keeps the current toolbar visible per the preference.
 - The editor context menu exposes **Show formatting toolbar** / **Hide formatting toolbar**.
 
 The toolbar inserts these Markdown primitives:

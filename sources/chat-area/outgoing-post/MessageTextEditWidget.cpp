@@ -214,9 +214,7 @@ MessageTextEditWidget::MessageTextEditWidget(QWidget* parent)
         COMPOSER_FORMATTING_TOOLBAR_VISIBLE_DEFAULT);
     connect(toolbarVisible, &MLOptionObject::changed, this,
             [this](const QVariant& value) {
-        if (hasFocus()) {
-            setFormattingToolbarVisible(value.toBool());
-        }
+        setFormattingToolbarVisible(value.toBool());
     });
 
     setSubmitHandler([this] { emit enterPressed(); });
@@ -354,7 +352,7 @@ void MessageTextEditWidget::setFormattingToolbarPreferredVisible(bool visible)
     MLOptions::instance()->optionObject<bool>(
         COMPOSER_FORMATTING_TOOLBAR_VISIBLE,
         COMPOSER_FORMATTING_TOOLBAR_VISIBLE_DEFAULT)->setValue(visible);
-    setFormattingToolbarVisible(hasFocus() && visible);
+    setFormattingToolbarVisible(visible);
 }
 
 void MessageTextEditWidget::wrapMarkdownSelection(const QString& before,
@@ -608,7 +606,6 @@ void MessageTextEditWidget::focusInEvent(QFocusEvent* event)
 
 void MessageTextEditWidget::focusOutEvent(QFocusEvent* event)
 {
-    setFormattingToolbarVisible(false);
     InteractiveTextEdit::focusOutEvent(event);
 }
 
